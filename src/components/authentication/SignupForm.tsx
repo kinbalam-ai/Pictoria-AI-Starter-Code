@@ -83,6 +83,7 @@ export function SignupForm() {
     const { success, error } = await signup(formData);
     if (!success) {
       toast.error(String(error), { id: toastId });
+      setIsLoading(false);
     } else {
       toast.success(
         "Signed up successfully! Please confirm your email address.",
@@ -90,10 +91,11 @@ export function SignupForm() {
       );
       // !! revalidatePath function is intended for use in server-side contexts only
       // revalidatePath("/", "layout");
-      redirect("/login");
+      setIsLoading(false);
+      redirect("/login"); // !! like, just like reload or sum
     }
 
-    setIsLoading(false);
+    // setIsLoading(false);
   }
 
   // !! we need a button to show the password field
