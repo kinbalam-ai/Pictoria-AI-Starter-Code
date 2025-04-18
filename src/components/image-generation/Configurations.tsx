@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-// import React, { useEffect } from "react";
+import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Info } from "lucide-react";
 
@@ -30,7 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "../ui/button";
-// import useGenerateStore from "@/store/useGenerateStore";
+import useGenerateStore from "@/store/useGenerateStore";
 // import { Tables } from "@database.types";
 
 interface ConfigurationsProps {
@@ -60,7 +61,7 @@ const formSchema = z.object({
 });
 
 const Configurations = ({ userModels, model_id }: ConfigurationsProps) => {
-  // const generateImage = useGenerateStore((state: any) => state.generateImage);
+  const generateImage = useGenerateStore((state: any) => state.generateImage);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -81,52 +82,52 @@ const Configurations = ({ userModels, model_id }: ConfigurationsProps) => {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     console.log("Configurations onSubmit: ", values);
-    // const newValues = {
-    //   ...values,
-    //   prompt: values.model.startsWith(
-    //     `${process.env.NEXT_PUBLIC_REPLICATE_USER_NAME}/`
-    //   )
-    //     ? (() => {
-    //         const modelId = values.model
-    //           .replace(`${process.env.NEXT_PUBLIC_REPLICATE_USER_NAME}/`, "")
-    //           .split(":")[0];
-    //         const selectedModel = userModels.find(
-    //           (model) => model.model_id === modelId
-    //         );
-    //         return `photo of ${selectedModel?.trigger_word || "ohwx"} ${
-    //           selectedModel?.gender
-    //         }, ${values.prompt}`;
-    //       })()
-    //     : values.prompt,
-    // };
+    const newValues = {
+      ...values,
+      prompt: values.model.startsWith(
+        `${process.env.NEXT_PUBLIC_REPLICATE_USER_NAME}/`
+      )
+        ? (() => {
+            const modelId = values.model
+              .replace(`${process.env.NEXT_PUBLIC_REPLICATE_USER_NAME}/`, "")
+              .split(":")[0];
+            const selectedModel = userModels.find(
+              (model) => model.model_id === modelId
+            );
+            return `photo of ${selectedModel?.trigger_word || "ohwx"} ${
+              selectedModel?.gender
+            }, ${values.prompt}`;
+          })()
+        : values.prompt,
+    };
 
-    // await generateImage(newValues);
+    await generateImage(newValues);
   }
 
   // ** adjusting for different models
   // !! people dont want to think about this shit tbh
-  // useEffect(() => {
-  //   const subscription = form.watch((value, { name }) => {
-  //     if (name === "model") {
-  //       let newSteps;
-  //       if (value.model === "black-forest-labs/flux-schnell") {
-  //         newSteps = 4;
-  //       } else if (value.model === "black-forest-labs/flux-dev") {
-  //         newSteps = 28;
-  //       } else if (
-  //         value?.model?.startsWith(
-  //           `${process.env.NEXT_PUBLIC_REPLICATE_USER_NAME}/`
-  //         )
-  //       ) {
-  //         newSteps = 28; // Default value for custom models
-  //       }
-  //       if (newSteps !== undefined) {
-  //         form.setValue("num_inference_steps", newSteps);
-  //       }
-  //     }
-  //   });
-  //   return () => subscription.unsubscribe();
-  // }, [form]);
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "model") {
+        let newSteps;
+        if (value.model === "black-forest-labs/flux-schnell") {
+          newSteps = 4;
+        } else if (value.model === "black-forest-labs/flux-dev") {
+          newSteps = 28;
+        } else if (
+          value?.model?.startsWith(
+            `${process.env.NEXT_PUBLIC_REPLICATE_USER_NAME}/`
+          )
+        ) {
+          newSteps = 28; // Default value for custom models
+        }
+        if (newSteps !== undefined) {
+          form.setValue("num_inference_steps", newSteps);
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   return (
     <TooltipProvider>

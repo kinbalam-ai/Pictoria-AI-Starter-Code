@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { toast } from "sonner";
-// import { generateImage as generateImageAction, storeImages } from '@/app/actions/image-actions'
+import {
+  generateImage as generateImageAction,
+  storeImages,
+} from "@/app/actions/image-actions";
 
 interface GenerateState {
   loading: boolean;
@@ -31,23 +34,29 @@ const useGenerateStore = create<GenerateState>((set) => ({
 
     try {
       console.log("useGenerateStore values: ", values);
-      // const { data:output, error, success } = await generateImageAction(values)
-      // if (!success) {
-      //   set({ error: error, loading: false })
-      //   toast.error(error, { id: toastId })
-      //   return
-      // }
-      // const dataWithInputs = Array.isArray(output) ? output.map((url: string) => ({
-      //   url,
-      //   ...values,
-      // })) : []
+      const {
+        data: output,
+        error,
+        success,
+      } = await generateImageAction(values);
+      if (!success) {
+        set({ error: error, loading: false });
+        toast.error(error, { id: toastId });
+        return;
+      }
+      const dataWithInputs = Array.isArray(output)
+        ? output.map((url: string) => ({
+            url,
+            ...values,
+          }))
+        : [];
 
-      // set({ images: dataWithInputs, loading: false })
-      // toast.success("Image generated successfully", { id: toastId })
+      set({ images: dataWithInputs, loading: false });
+      toast.success("Image generated successfully", { id: toastId });
 
-      // // Store the generated images
-      // await storeImages(dataWithInputs)
-      // toast.success("Images stored successfully")
+      // Store the generated images
+      await storeImages(dataWithInputs);
+      toast.success("Images stored successfully");
     } catch (error) {
       console.error(error);
       set({
