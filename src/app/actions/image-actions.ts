@@ -9,7 +9,7 @@ import Replicate from "replicate";
 import { imageMeta } from "image-meta";
 // import { getCredits } from "./credit-actions";
 import { createClient } from "@/lib/supabase/server";
-// import { createClientWithOptions } from "@/lib/supabase/server-fetch";
+import { createClientWithOptions } from "@/lib/supabase/server-fetch";
 // import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const replicate = new Replicate({
@@ -122,8 +122,7 @@ export async function storeImages(
     const fileName = `image_${randomUUID()}.${type}`;
     const filePath = `${user.id}/${fileName}`;
 
-
-    console.log("Saving image to storage...")
+    console.log("Saving image to storage...");
     const { error: storageError } = await supabase.storage
       .from("generated-images")
       .upload(filePath, arrayBuffer, {
@@ -199,102 +198,102 @@ export async function imgUrlToBlob(url: string): Promise<ArrayBuffer> {
 //   return { signedUrl: urlData?.signedUrl || "", error: error?.message || null };
 // }
 
-// export async function getImages(limit?: number) {
-//   const cacheOptions = {
-//     cache: "force-cache",
-//     next: {
-//       tags: ["dashboard-images", "gallery-images"],
-//     },
-//   };
+export async function getImages(limit?: number) {
+  const cacheOptions = {
+    cache: "force-cache",
+    next: {
+      tags: ["dashboard-images", "gallery-images"],
+    },
+  };
 
-//   const supabase = await createClientWithOptions(cacheOptions);
-//   const {
-//     data: { user },
-//   } = await supabase.auth.getUser();
+  const supabase = await createClientWithOptions(cacheOptions);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-//   if (!user) {
-//     return {
-//       error: "Unauthorized",
-//       success: false,
-//       data: null,
-//     };
-//   }
+  if (!user) {
+    return {
+      error: "Unauthorized",
+      success: false,
+      data: null,
+    };
+  }
 
-//   let query = supabase
-//     .from("generated_images")
-//     .select("*")
-//     .eq("user_id", user?.id || "")
-//     .order("created_at", { ascending: false });
+  let query = supabase
+    .from("generated_images")
+    .select("*")
+    .eq("user_id", user?.id || "")
+    .order("created_at", { ascending: false });
 
-//   if (limit) {
-//     query = query.limit(limit);
-//   }
+  if (limit) {
+    query = query.limit(limit);
+  }
 
-//   const { data, error } = await query;
+  const { data, error } = await query;
 
-//   if (error) {
-//     return {
-//       error: error.message || "Failed to fetch images",
-//       success: false,
-//       data: null,
-//     };
-//   }
+  if (error) {
+    return {
+      error: error.message || "Failed to fetch images",
+      success: false,
+      data: null,
+    };
+  }
 
-//   const imagesWithUrls = await Promise.all(
-//     data.map(
-//       async (
-//         image: Database["public"]["Tables"]["generated_images"]["Row"]
-//       ) => {
-//         const { data: urlData } = await supabase.storage
-//           .from("generated_images")
-//           .createSignedUrl(`${user?.id || ""}/${image.image_name}`, 3600);
+  const imagesWithUrls = await Promise.all(
+    data.map(
+      async (
+        image: Database["public"]["Tables"]["generated_images"]["Row"]
+      ) => {
+        const { data: urlData } = await supabase.storage
+          .from("generated_images")
+          .createSignedUrl(`${user?.id || ""}/${image.image_name}`, 3600);
 
-//         return {
-//           ...image,
-//           url: urlData?.signedUrl,
-//         };
-//       }
-//     )
-//   );
+        return {
+          ...image,
+          url: urlData?.signedUrl,
+        };
+      }
+    )
+  );
 
-//   return {
-//     error: null,
-//     success: true,
-//     data: imagesWithUrls || null,
-//   };
-// }
+  return {
+    error: null,
+    success: true,
+    data: imagesWithUrls || null,
+  };
+}
 
-// export async function deleteImage(id: string, imageName: string) {
-//   const supabase = await createClient();
-//   const {
-//     data: { user },
-//   } = await supabase.auth.getUser();
+export async function deleteImage(id: string, imageName: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-//   if (!user) {
-//     // throw new Error("Unauthorized");
-//     return {
-//       error: "Unauthorized",
-//       success: false,
-//       message: "Failed to delete image",
-//     };
-//   }
+  if (!user) {
+    // throw new Error("Unauthorized");
+    return {
+      error: "Unauthorized",
+      success: false,
+      message: "Failed to delete image",
+    };
+  }
 
-//   const { error, data } = await supabase
-//     .from("generated_images")
-//     .delete()
-//     .eq("id", id)
-//     .eq("user_id", user.id);
+  const { error, data } = await supabase
+    .from("generated_images")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
 
-//   if (error) {
-//     return { error: error.message, success: false, data: null };
-//   }
+  if (error) {
+    return { error: error.message, success: false, data: null };
+  }
 
-//   await supabase.storage
-//     .from("generated_images")
-//     .remove([`${user.id}/${imageName}`]);
+  await supabase.storage
+    .from("generated_images")
+    .remove([`${user.id}/${imageName}`]);
 
-//   revalidateTag("dashboard-images");
-//   revalidateTag("gallery-images");
+  revalidateTag("dashboard-images");
+  revalidateTag("gallery-images");
 
-//   return { error: null, success: true, data: data };
-// }
+  return { error: null, success: true, data: data };
+}
