@@ -184,6 +184,11 @@ const navMain = [
     icon: Images,
   },
   {
+    title: "Radicals",
+    url: "/radicals",
+    icon: Images,
+  },
+  {
     title: "Billing",
     url: "/billing",
     icon: CreditCard,
