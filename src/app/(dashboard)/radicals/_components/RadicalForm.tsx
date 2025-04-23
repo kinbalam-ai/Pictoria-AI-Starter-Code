@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// import { saveRadical } from "@/app/actions/saveRadical";
+import { saveRadicals } from "@/app/actions/radicals-actions";
 
 // Updated Zod schema with required HSK level
 const radicalSchema = z.object({
@@ -36,7 +36,9 @@ const radicalSchema = z.object({
         pronunciation: z
           .string()
           .min(1, "Pinyin is required")
-          .regex(/^[a-zA-ZÀ-ÿ\s\d]+$/, "Invalid pinyin format"),
+          .regex(/^[a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s\d]+$/, {
+            message: "Invalid pinyin format - must include valid tone marks",
+          }),
       })
     )
     .min(1, "At least one pronunciation required"),
@@ -54,11 +56,7 @@ const radicalSchema = z.object({
 
 type RadicalFormValues = z.infer<typeof radicalSchema>;
 
-export function RadicalForm({
-  onCancel,
-}: {
-  onCancel: () => void;
-}) {
+export function RadicalForm({ onCancel }: { onCancel: () => void }) {
   const {
     control,
     register,
@@ -95,9 +93,10 @@ export function RadicalForm({
   });
 
   const onSubmit = async (values: RadicalFormValues) => {
-    console.log("values form data: ", values)
-    // const result = await saveRadical(values);
-    
+    console.log("values form data: ", values);
+    // const result =
+    await saveRadicals([values]);
+
     // if (!result.success) {
     //   // Handle error (show toast, etc.)
     //   console.error("Failed to save:", result.error);
@@ -108,7 +107,7 @@ export function RadicalForm({
     //   });
     //   return;
     // }
-    
+
     // On success:
     // - Redirect
     // - Show success message

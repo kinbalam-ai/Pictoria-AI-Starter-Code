@@ -1,61 +1,37 @@
-"use client"
+// app/radicals/page.tsx
 import { RadicalsTable } from "./_components/RadicalsTable";
-// import { AddRadicalButton } from "./_components/AddRadicalButton";
-import { useState } from "react";
-import { Radical } from "./_components/RadicalsTable";
 import { AddRadicalButton } from "./_components/AddRadicalButton";
+import { getRadicals } from "@/app/actions/radicals-actions";
 
-export default function RadicalsPage() {
-  const [radicals, setRadicals] = useState<Radical[]>([]);
-  const [editingRadical, setEditingRadical] = useState<Radical | null>(null);
+export default async function RadicalsPage() {
+  
+  // Call the backend function directly
+  const { success, data: radicals, error } = await getRadicals();
 
-//   const handleAdd = (newRadical: Omit<Radical, "id">) => {
-//     setRadicals([...radicals, { ...newRadical, id: radicals.length + 1 }]);
-//   };
+  if (!success || !radicals) {
+    return (
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Radicals</h1>
+          <AddRadicalButton />
+        </div>
+        <p className="text-red-500">{error || "Failed to load radicals"}</p>
+      </div>
+    );
+  }
 
-//   const handleEdit = (updatedRadical: Radical) => {
-//     setRadicals(
-//       radicals.map((r) => (r.id === updatedRadical.id ? updatedRadical : r))
-//     );
-//     setEditingRadical(null);
-//   };
-
-  const handleDelete = (id: number) => {
-    setRadicals(radicals.filter((r) => r.id !== id));
-  };
+  // console.log("radicals: ", radicals)
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Radicals</h1>
-        {/* <AddRadicalButton onAdd={handleAdd} /> */}
-        <AddRadicalButton onSave={() => {}} />
+        <AddRadicalButton />
       </div>
       
       <RadicalsTable
-        radicals={[]}
-        onEdit={setEditingRadical}
-        onDelete={handleDelete}
+        radicals={radicals}
       />
-
-      {/* Edit Dialog */}
-      {/* {editingRadical && (
-        <Dialog
-          open={!!editingRadical}
-          onOpenChange={(open) => !open && setEditingRadical(null)}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Radical</DialogTitle>
-            </DialogHeader>
-            <RadicalForm
-              onSubmit={handleEdit}
-              onCancel={() => setEditingRadical(null)}
-              defaultValues={editingRadical}
-            />
-          </DialogContent>
-        </Dialog>
-      )} */}
     </div>
   );
 }

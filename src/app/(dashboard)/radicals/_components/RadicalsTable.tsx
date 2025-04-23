@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+"use client"
 import {
   useReactTable,
   getCoreRowModel,
@@ -18,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ArrowUpDown, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { deleteRadical } from '@/app/actions/radicals-actions'
 
 export interface Radical {
   id: number
@@ -35,14 +38,21 @@ export interface Radical {
 }
 
 interface RadicalsTableProps {
-  radicals: Radical[]
-  onEdit: (radical: Radical) => void
-  onDelete: (id: number) => void
+  radicals: Radical[];
+  // onDelete?: (id: number) => Promise<void>; // Add this
 }
 
-export function RadicalsTable({ radicals, onEdit, onDelete }: RadicalsTableProps) {
+export function RadicalsTable({ radicals }: RadicalsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [rowSelection, setRowSelection] = useState({})
+
+  const onDelete = async (id: number) => {
+    const result = await deleteRadical(id);
+    if (!result.success) {
+      throw new Error(result.error || "Failed to delete radical");
+    }
+    // Next.js will automatically re-render the page
+  };
 
   const columns: ColumnDef<Radical>[] = [
     {
@@ -133,7 +143,6 @@ export function RadicalsTable({ radicals, onEdit, onDelete }: RadicalsTableProps
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onEdit(row.original)}
             className="h-8 w-8 p-0"
           >
             <Edit className="h-4 w-4" />
@@ -141,14 +150,18 @@ export function RadicalsTable({ radicals, onEdit, onDelete }: RadicalsTableProps
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onDelete(row.original.id)}
-            className="h-8 w-8 p-0"
+            onClick={async () => {
+              if (onDelete) {
+                await onDelete(row.original.id);
+              }
+            }}
+            className="h-8 w-8 p-0 hover:bg-red-50" // Added hover effect
           >
             <Trash2 className="h-4 w-4 text-red-500" />
           </Button>
         </div>
       ),
-    },
+    }
   ]
 
   const table = useReactTable({
