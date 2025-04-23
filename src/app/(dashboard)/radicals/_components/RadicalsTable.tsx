@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowUpDown, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteRadical } from '@/app/actions/radicals-actions'
+import useRadicalDialogStore from '@/store/useRadicalDialogStore'
 
 export interface Radical {
   id: number
@@ -45,6 +46,8 @@ interface RadicalsTableProps {
 export function RadicalsTable({ radicals }: RadicalsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [rowSelection, setRowSelection] = useState({})
+
+  const { openDialog } = useRadicalDialogStore();
 
   const onDelete = async (id: number) => {
     const result = await deleteRadical(id);
@@ -144,6 +147,7 @@ export function RadicalsTable({ radicals }: RadicalsTableProps) {
             variant="ghost"
             size="icon"
             className="h-8 w-8 p-0"
+            onClick={() => openDialog(row.original)}
           >
             <Edit className="h-4 w-4" />
           </Button>

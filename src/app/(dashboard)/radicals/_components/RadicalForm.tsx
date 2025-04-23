@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { saveRadicals } from "@/app/actions/radicals-actions";
+import { Radical } from "./RadicalsTable";
 
 // Updated Zod schema with required HSK level
 const radicalSchema = z.object({
@@ -55,22 +56,29 @@ const radicalSchema = z.object({
 });
 
 type RadicalFormValues = z.infer<typeof radicalSchema>;
+interface RadicalFormProps {
+  initialValues?: Radical | null;
+  onCancel: () => void;
+  // onSubmit: (values: RadicalFormValues) => Promise<void> | void;
+}
 
-export function RadicalForm({ onCancel }: { onCancel: () => void }) {
+export function RadicalForm({ initialValues, onCancel }: RadicalFormProps) {
   const {
     control,
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
+    setError,
+    reset,
   } = useForm<RadicalFormValues>({
     resolver: zodResolver(radicalSchema),
     defaultValues: {
-      forms: [{ variant: "", strokes: 4 }],
-      pinyin: [{ pronunciation: "" }],
-      kangxi_number: 1,
-      hsk_level: 1, // Default to HSK 1
-      name_en: "",
-      meaning: "",
+      forms: initialValues?.forms || [{ variant: "", strokes: 4 }],
+      pinyin: initialValues?.pinyin || [{ pronunciation: "" }],
+      kangxi_number: initialValues?.kangxi_number || 1,
+      hsk_level: initialValues?.hsk_level || 1,
+      name_en: initialValues?.name_en || "",
+      meaning: initialValues?.meaning || "",
     },
   });
 
@@ -93,26 +101,31 @@ export function RadicalForm({ onCancel }: { onCancel: () => void }) {
   });
 
   const onSubmit = async (values: RadicalFormValues) => {
-    console.log("values form data: ", values);
-    // const result =
-    await saveRadicals([values]);
+    try {
+      console.log("Form values:", values);
+      const result = await saveRadicals([values]);
 
-    // if (!result.success) {
-    //   // Handle error (show toast, etc.)
-    //   console.error("Failed to save:", result.error);
-    //   // You can also set form errors if needed:
-    //   setError("root", {
-    //     type: "manual",
-    //     message: result.error || "Failed to save radical",
-    //   });
-    //   return;
-    // }
+      if (!result.success) {
+        setError("root", {
+          type: "manual",
+          message: result.error || "Failed to save radical",
+        });
+        return;
+      }
 
-    // On success:
-    // - Redirect
-    // - Show success message
-    // - Reset form, etc.
-    // console.log("Saved successfully:", result.data);
+      // On successful submission:
+      onCancel(); // Close the dialog
+      reset(); // Reset the form
+
+      // Optional: Add toast notification
+      // toast.success("Radical saved successfully");
+    } catch (error) {
+      console.error("Submission error:", error);
+      setError("root", {
+        type: "manual",
+        message: "An unexpected error occurred",
+      });
+    }
   };
 
   return (
@@ -287,7 +300,7 @@ export function RadicalForm({ onCancel }: { onCancel: () => void }) {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">Save Radical</Button>
+        <Button disabled={isSubmitting} type="submit">Save Radical</Button>
       </div>
     </form>
   );
