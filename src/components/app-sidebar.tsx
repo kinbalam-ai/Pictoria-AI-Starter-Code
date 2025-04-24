@@ -190,6 +190,11 @@ const navMain = [
     icon: Images,
   },
   {
+    title: "Hanzis",
+    url: "/hanzis",
+    icon: Images,
+  },
+  {
     title: "Billing",
     url: "/billing",
     icon: CreditCard,
