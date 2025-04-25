@@ -1,7 +1,11 @@
 // app/hanzis/_components/types.ts
 import { z } from "zod";
 
-export const HanziCharacterType = z.enum(["standard", "traditional"]);
+export const HanziCharacterType = z.enum([
+  "identical",
+  "simplified",
+  "traditional",
+]);
 export type HanziCharacterType = z.infer<typeof HanziCharacterType>;
 
 export interface Hanzi {
@@ -15,9 +19,9 @@ export interface Hanzi {
   stroke_count: number;
   hsk_level: number;
   frequency_rank?: number;
-  radical_ids_standard: { radical_id: number }[];
-  character_traditional: string | null;
-  radical_ids_traditional: number[];
+  radical_ids: { radical_id: number }[];
+  related_character: string | null;
+  related_radical_ids: number[];
 }
 
 export const hanziSchema = z.object({
@@ -39,11 +43,9 @@ export const hanziSchema = z.object({
   stroke_count: z.number().min(1, "Minimum 1 stroke"),
   hsk_level: z.number().min(1).max(6),
   frequency_rank: z.number().optional(),
-  radical_ids_standard: z
-    .array(z.object({ radical_id: z.number() }))
-    .optional(),
-  character_traditional: z.string().optional(),
-  radical_ids_traditional: z.array(z.number()).optional(),
+  radical_ids: z.array(z.object({ radical_id: z.number() })),
+  related_character: z.string().optional(),
+  related_radical_ids: z.array(z.object({ radical_id: z.number() })).optional(),
 });
 
 export type HanziFormValues = z.infer<typeof hanziSchema>;
