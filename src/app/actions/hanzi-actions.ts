@@ -1,23 +1,24 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// app/actions/hanziActions.ts
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-// import { createClientWithOptions } from "@/lib/supabase/server-fetch";
-// import { revalidatePath } from "next/cache";
+import { createClientWithOptions } from "@/lib/supabase/server-fetch";
+import { revalidatePath } from "next/cache";
+import { Hanzi } from "../(dashboard)/hanzis/_components/types";
 
-// interface HanziInput {
-//   standard_character: string;
-//   traditional_character?: string | null;
-//   is_identical: boolean;
-//   pinyin: { pronunciation: string }[];
-//   definition: string;
-//   stroke_count: number;
-//   hsk_level: number;
-//   frequency_rank?: number | null;
-//   standard_radical_ids: { id: number; name: string }[];
-//   traditional_radical_ids?: { id: number; name: string }[] | null;
-// }
+interface HanziInput {
+  standard_character: string;
+  traditional_character: string | null;
+  is_identical: boolean;
+  pinyin: { pronunciation: string }[];
+  definition: string;
+  stroke_count: number;
+  hsk_level: number;
+  frequency_rank?: number | null;
+  simplified_radical_ids: { kangxi_id: number }[];
+  traditional_radical_ids: { kangxi_id: number }[] | null;
+}
 
 interface HanziResponse {
   error: string | null;
@@ -25,9 +26,7 @@ interface HanziResponse {
   data: any | null;
 }
 
-export async function saveHanzis(
-  data: any[]
-): Promise<HanziResponse> {
+export async function saveHanzis(data: HanziInput[]): Promise<HanziResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -42,43 +41,31 @@ export async function saveHanzis(
     };
   }
 
-  console.log("HANZI data: ", data)
-
   try {
-    // // Format the insert data
-    // const insertPayload = data.map((hanzi) => ({
-    //   standard_character: hanzi.standard_character,
-    //   traditional_character: hanzi.traditional_character,
-    //   is_identical: hanzi.is_identical,
-    //   pinyin: hanzi.pinyin,
-    //   definition: hanzi.definition,
-    //   stroke_count: hanzi.stroke_count,
-    //   hsk_level: hanzi.hsk_level,
-    //   frequency_rank: hanzi.frequency_rank,
-    //   standard_radical_ids: hanzi.standard_radical_ids,
-    //   traditional_radical_ids: hanzi.traditional_radical_ids,
-    //   user_id: user.id,
-    // }));
+    // Simply add user_id to each hanzi record
+    const insertPayload = data.map((hanzi) => ({
+      ...hanzi,
+      user_id: user.id,
+    }));
 
-    // // Insert all hanzis in a single transaction
-    // const { data: dbData, error: dbError } = await supabase
-    //   .from("hanzis")
-    //   .insert(insertPayload)
-    //   .select();
+    const { data: dbData, error: dbError } = await supabase
+      .from("hanzis")
+      .insert(insertPayload)
+      .select();
 
-    // if (dbError) {
-    //   console.error("Supabase error:", dbError);
-    //   throw dbError;
-    // }
+    if (dbError) {
+      console.error("Supabase error:", dbError);
+      throw dbError;
+    }
 
-    // // Revalidate paths
-    // revalidatePath("/hanzis");
-    // revalidatePath("/dashboard/hanzis");
+    // Revalidate paths
+    revalidatePath("/hanzis");
+    revalidatePath("/dashboard/hanzis");
 
     return {
       error: null,
       success: true,
-      data: data,
+      data: dbData,
     };
   } catch (error) {
     console.error("Failed to save hanzis:", error);
@@ -90,177 +77,168 @@ export async function saveHanzis(
   }
 }
 
-// export async function getHanzis(limit?: number, filters?: {
-//   hsk_level?: number;
-//   stroke_count?: number;
-// }) {
-//   const cacheOptions = {
-//     cache: "force-cache",
-//     next: {
-//       tags: ["hanzis"],
-//     },
-//   };
+interface GetHanzisParams {
+  limit?: number;
+  page?: number;
+  hsk_level?: number;
+  character_type?: "identical" | "simplified" | "traditional";
+  search_term?: string;
+}
 
-//   const supabase = await createClientWithOptions(cacheOptions);
-//   const {
-//     data: { user },
-//   } = await supabase.auth.getUser();
+interface PaginatedHanzisResponse {
+  data: Hanzi[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+  error?: string;
+}
 
-//   if (!user) {
-//     return {
-//       error: "Unauthorized",
-//       success: false,
-//       data: null,
-//     };
-//   }
+export async function getHanzis(
+  params?: GetHanzisParams
+): Promise<PaginatedHanzisResponse> {
+  const cacheOptions = {
+    cache: "force-cache",
+    next: { tags: ["hanzis"] },
+  };
 
-//   let query = supabase
-//     .from("hanzis")
-//     .select(`
-//       id,
-//       created_at,
-//       standard_character,
-//       traditional_character,
-//       is_identical,
-//       pinyin,
-//       definition,
-//       stroke_count,
-//       hsk_level,
-//       frequency_rank,
-//       standard_radical_ids,
-//       traditional_radical_ids
-//     `)
-//     .eq("user_id", user.id)
-//     .order("frequency_rank", { ascending: true });
+  const supabase = await createClientWithOptions(cacheOptions);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-//   // Apply filters if provided
-//   if (filters?.hsk_level) {
-//     query = query.eq("hsk_level", filters.hsk_level);
-//   }
-//   if (filters?.stroke_count) {
-//     query = query.eq("stroke_count", filters.stroke_count);
-//   }
+  if (!user) {
+    return {
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 10,
+      total_pages: 0,
+      error: "Unauthorized - You must be logged in to view hanzis",
+    };
+  }
 
-//   if (limit) {
-//     query = query.limit(limit);
-//   }
+  try {
+    // Set default pagination values
+    const limit = params?.limit || 10;
+    const page = params?.page || 1;
+    const offset = (page - 1) * limit;
 
-//   const { data, error } = await query;
+    let query = supabase
+      .from("hanzis")
+      .select(
+        `
+        id,
+        created_at,
+        standard_character,
+        traditional_character,
+        is_identical,
+        pinyin,
+        definition,
+        stroke_count,
+        hsk_level,
+        frequency_rank,
+        simplified_radical_ids,
+        traditional_radical_ids
+      `,
+        { count: "exact" } // Get total count for pagination
+      )
+      .eq("user_id", user.id)
+      .order("frequency_rank", { ascending: true })
+      .range(offset, offset + limit - 1);
 
-//   if (error) {
-//     return {
-//       error: error.message || "Failed to fetch hanzis",
-//       success: false,
-//       data: null,
-//     };
-//   }
+    // Apply filters
+    if (params?.hsk_level) {
+      query = query.eq("hsk_level", params.hsk_level);
+    }
+    if (params?.character_type) {
+      query = query.eq("is_identical", params.character_type === "identical");
+    }
+    if (params?.search_term) {
+      query = query.ilike("standard_character", `%${params.search_term}%`);
+    }
 
-//   // Format the data for easier consumption
-//   const formattedHanzis = data.map((hanzi) => ({
-//     ...hanzi,
-//     primary_pinyin: hanzi.pinyin[0]?.pronunciation || "",
-//     is_traditional: !hanzi.is_identical && hanzi.traditional_character !== null,
-//   }));
+    const { data, count, error } = await query;
 
-//   return {
-//     error: null,
-//     success: true,
-//     data: formattedHanzis || null,
-//   };
-// }
+    if (error) throw error;
 
-// export async function deleteHanzi(id: number) {
-//   const supabase = await createClient();
-//   const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Transform database fields to match Hanzi type
+    // const formattedData = data?.map((hanzi) => ({
+    //   ...hanzi,
+    //   // simplified_radical_ids: hanzi.standard_radical_ids, // Map to expected field
+    //   // traditional_radical_ids: hanzi.traditional_radical_ids, // Keep same name
+    // })) as Hanzi[];
 
-//   if (authError || !user) {
-//     return {
-//       error: "Unauthorized",
-//       success: false,
-//       message: "Failed to delete hanzi - not authenticated",
-//       data: null
-//     };
-//   }
+    return {
+      data: data || [],
+      total: count || 0,
+      page,
+      limit,
+      total_pages: Math.ceil((count || 0) / limit),
+    };
+  } catch (error) {
+    console.error("Failed to fetch hanzis:", error);
+    return {
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 10,
+      total_pages: 0,
+      error: error instanceof Error ? error.message : "Database error",
+    };
+  }
+}
 
-//   try {
-//     const { error: deleteError, data } = await supabase
-//       .from("hanzis")
-//       .delete()
-//       .eq("id", id)
-//       .eq("user_id", user.id)
-//       .select();
+export async function deleteHanzi(id: number): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const supabase = await createClient();
 
-//     if (deleteError) {
-//       return {
-//         error: deleteError.message,
-//         success: false,
-//         message: "Database deletion failed",
-//         data: null
-//       };
-//     }
+  try {
+    // Verify user authentication
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-//     revalidatePath("/hanzis");
-//     revalidatePath("/dashboard/hanzis");
+    if (authError || !user) {
+      throw new Error("Unauthorized - You must be logged in to delete hanzis");
+    }
 
-//     return {
-//       error: null,
-//       success: true,
-//       message: "Hanzi deleted successfully",
-//       data: data[0]
-//     };
+    // First verify the hanzi exists and belongs to this user
+    const { data: existing, error: fetchError } = await supabase
+      .from("hanzis")
+      .select("id")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
 
-//   } catch (error) {
-//     console.error("Failed to delete hanzi:", error);
-//     return {
-//       error: error instanceof Error ? error.message : "Unknown error",
-//       success: false,
-//       message: "Failed to delete hanzi",
-//       data: null
-//     };
-//   }
-// }
+    if (fetchError) {
+      throw new Error("Hanzi not found or access denied");
+    }
 
-// export async function updateHanzi(id: number, updateData: Partial<HanziInput>) {
-//   const supabase = await createClient();
-//   const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Execute the delete operation
+    const { error } = await supabase
+      .from("hanzis")
+      .delete()
+      .match({ id, user_id: user.id }); // Double-check user ownership
 
-//   if (authError || !user) {
-//     return {
-//       error: "Unauthorized",
-//       success: false,
-//       data: null
-//     };
-//   }
+    if (error) {
+      throw new Error(error.message || "Failed to delete hanzi");
+    }
 
-//   try {
-//     // Ensure we don't update user_id
-//     const { user_id, ...cleanUpdateData } = updateData;
+    // Revalidate cached paths
+    revalidatePath("/hanzis");
+    revalidatePath("/dashboard/hanzis");
 
-//     const { data, error: updateError } = await supabase
-//       .from("hanzis")
-//       .update(cleanUpdateData)
-//       .eq("id", id)
-//       .eq("user_id", user.id)
-//       .select();
-
-//     if (updateError) {
-//       throw updateError;
-//     }
-
-//     revalidatePath("/hanzis");
-//     revalidatePath(`/hanzis/${id}`);
-
-//     return {
-//       error: null,
-//       success: true,
-//       data: data[0]
-//     };
-//   } catch (error) {
-//     console.error("Failed to update hanzi:", error);
-//     return {
-//       error: error instanceof Error ? error.message : "Update failed",
-//       success: false,
-//       data: null
-//     };
-//   }
-// }
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete hanzi:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "An unknown error occurred",
+    };
+  }
+}

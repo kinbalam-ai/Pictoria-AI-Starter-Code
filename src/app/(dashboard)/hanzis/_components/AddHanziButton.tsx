@@ -4,41 +4,57 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import useHanziDialogStore from "@/store/useHanziDialogStore";
 import { HanziForm } from "./HanziForm";
 
 export function AddHanziButton() {
-  const [isOpen, setIsOpen] = useState(false);
+  const { isOpen, editingHanzi, closeDialog, openDialog } = useHanziDialogStore();
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        closeDialog(); // Reset state when closing
+      }
+    }}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
+        <Button 
+          className="gap-2"
+          onClick={() => {
+            // Explicitly clear any editing state when opening for new hanzi
+            if (editingHanzi) {
+              closeDialog();
+            } else {
+              openDialog()
+            }
+          }}
+        >
           <Plus className="h-4 w-4" />
           Add Hanzi
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-xl">Add New Hanzi</DialogTitle>
+          <DialogTitle className="text-xl">
+            {editingHanzi
+              ? `Edit Hanzi ${editingHanzi.standard_character}`
+              : "Add New Hanzi"}
+          </DialogTitle>
           <DialogDescription>
-            Fill in the details for a new Chinese character
+            {editingHanzi
+              ? "Modify the details of this character"
+              : "Fill in the details for a new character"}
           </DialogDescription>
         </DialogHeader>
         <HanziForm
-          onCancel={() => {
-            //  setIsOpen(false)
-          }}
-          onSubmit={() => {
-            // setIsOpen(false);
-            // Optional: Add success toast here
-          }}
+          key={editingHanzi?.id || "new"}
+          initialValues={editingHanzi}
+          onCancel={closeDialog}
         />
       </DialogContent>
     </Dialog>
