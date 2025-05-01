@@ -195,6 +195,8 @@ export async function deleteHanzi(id: number): Promise<{
 }> {
   const supabase = await createClient();
 
+  
+
   try {
     // Verify user authentication
     const {

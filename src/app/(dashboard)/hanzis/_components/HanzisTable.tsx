@@ -8,6 +8,7 @@ import {
   ColumnDef,
   flexRender,
   SortingState,
+  getPaginationRowModel,
 } from "@tanstack/react-table";
 import { Edit, Trash2, ArrowUpDown } from "lucide-react";
 import { useState } from "react";
@@ -28,9 +29,21 @@ import { deleteHanzi } from "@/app/actions/hanzi-actions";
 
 interface HanziTableProps {
   hanzis: Hanzi[];
-}
 
-export default function HanziTable({ hanzis }: HanziTableProps) {
+  totalCount: number; // Add total count for pagination
+  page: number;
+  limit: number;
+  onPageChange: (page: number) => void;
+  onLimitChange: (limit: number) => void;
+}
+export default function HanziTable({
+  hanzis,
+  totalCount,
+  page,
+  limit,
+  onPageChange,
+  onLimitChange,
+}: HanziTableProps) {
   const { openDialog } = useHanziDialogStore();
   const [sorting, setSorting] = useState<SortingState>([]);
 
@@ -138,45 +151,104 @@ export default function HanziTable({ hanzis }: HanziTableProps) {
     },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(), // Enable pagination
+    manualPagination: true, // We'll handle pagination server-side
+    pageCount: Math.ceil(totalCount / limit), // Total page count
   });
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
-                  {flexRender(
-                    header.column.columnDef.header,
-                    header.getContext()
-                  )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
+    <div className="space-y-4">
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+                  </TableHead>
                 ))}
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                No hanzis found.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No hanzis found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between px-2">
+        
+
+        <div className="flex items-center space-x-6 lg:space-x-8">
+          <div className="flex items-center space-x-0">
+            {/* <p className="text-sm font-medium">Rows per page</p> */}
+            <select
+              value={limit}
+              onChange={(e) => onLimitChange(Number(e.target.value))}
+              className="h-8 w-[70px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              {[10, 20, 30, 40, 50].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(page - 1)}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(page + 1)}
+              disabled={page * limit >= totalCount}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <p className="text-sm text-muted-foreground">
+            Showing {(page - 1) * limit + 1}-
+            {Math.min(page * limit, totalCount)} of {totalCount} hanzis
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
