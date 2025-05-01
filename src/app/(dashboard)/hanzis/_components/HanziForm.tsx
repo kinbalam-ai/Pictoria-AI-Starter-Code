@@ -1,12 +1,16 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// app/hanzis/_components/HanziForm.tsx
 "use client";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import {
+  useForm,
+  useFieldArray,
+  Controller,
+  SubmitHandler,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea"; // Added Textarea import
 import { Plus, Minus } from "lucide-react";
 import {
   Select,
@@ -15,11 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { saveHanzis } from "@/app/actions/hanzi-actions";
+import { saveHanzis, updateHanzi } from "@/app/actions/hanzi-actions";
 import { Hanzi } from "./types";
 import { useEffect } from "react";
 
 const hanziSchema = z.object({
+  id: z.number().optional(),
   standard_character: z
     .string()
     .min(1, "Character is required")
@@ -37,10 +42,15 @@ const hanziSchema = z.object({
     )
     .min(1, "At least one pronunciation required"),
   definition: z.string().min(1, "Definition is required"),
-  stroke_count: z
+  simplified_stroke_count: z
     .number()
     .min(1, "Minimum 1 stroke")
     .max(64, "Maximum 64 strokes"),
+  traditional_stroke_count: z
+    .number()
+    .min(1, "Minimum 1 stroke")
+    .max(64, "Maximum 64 strokes")
+    .nullable(),
   hsk_level: z.number().min(1, "HSK 1").max(6, "HSK 6"),
   frequency_rank: z.number().min(1, "Minimum rank 1").nullable(),
   simplified_radical_ids: z
@@ -75,7 +85,8 @@ export function HanziForm({ initialValues, onCancel }: HanziFormProps) {
       is_identical: false,
       pinyin: [{ pronunciation: "" }],
       definition: "",
-      stroke_count: 1,
+      simplified_stroke_count: 1,
+      traditional_stroke_count: 1,
       hsk_level: 1,
       frequency_rank: null,
       simplified_radical_ids: [],
@@ -83,11 +94,11 @@ export function HanziForm({ initialValues, onCancel }: HanziFormProps) {
     },
   });
 
-  const characterType = watch("is_identical")
-    ? "identical"
-    : watch("traditional_character")
-    ? "simplified"
-    : "traditional";
+  // const characterType = watch("is_identical")
+  //   ? "identical"
+  //   : watch("traditional_character")
+  //   ? "simplified"
+  //   : "traditional";
 
   const {
     fields: pinyinFields,
@@ -116,47 +127,39 @@ export function HanziForm({ initialValues, onCancel }: HanziFormProps) {
     name: "traditional_radical_ids",
   });
 
-  const onSubmit = async (data: HanziFormValues) => {
-    // Create a copy of the data to avoid mutating the original
+  const onSubmit: SubmitHandler<HanziFormValues> = async (data) => {
     const formattedData = { ...data };
-
+  
     try {
-      // 1. Handle identical characters case
       if (formattedData.is_identical) {
         formattedData.traditional_character = formattedData.standard_character;
-        formattedData.traditional_radical_ids =
-          formattedData.simplified_radical_ids;
+        formattedData.traditional_stroke_count = formattedData.simplified_stroke_count;
+        formattedData.traditional_radical_ids = formattedData.simplified_radical_ids;
       }
-
-      // 2. Check if characters are equal but identical flag is false
-      if (
-        !formattedData.is_identical &&
-        formattedData.traditional_character === formattedData.standard_character
-      ) {
-        // Characters are equal but identical flag wasn't set - correct this
+  
+      if (!formattedData.is_identical && formattedData.traditional_character === formattedData.standard_character) {
         formattedData.is_identical = true;
-        formattedData.traditional_radical_ids =
-          formattedData.simplified_radical_ids;
+        formattedData.traditional_stroke_count = formattedData.simplified_stroke_count;
+        formattedData.traditional_radical_ids = formattedData.simplified_radical_ids;
       }
-
-      console.log("Submitting hanzi data:", formattedData);
-
-      // Call the saveHanzis action
-      const response = await saveHanzis([formattedData]);
-
-      if (!response.success) {
-        throw new Error(response.error || "Failed to save hanzi");
+  
+      // Add this check for existing Hanzi
+      if (initialValues) {
+        // This is an edit operation - we need to update rather than create
+        const response = await updateHanzi(initialValues.id, formattedData);
+        if (!response.success) throw new Error(response.error || "Failed to update hanzi");
+      } else {
+        // This is a create operation
+        const response = await saveHanzis([{...formattedData, id: 0}]);
+        if (!response.success) throw new Error(response.error || "Failed to save hanzi");
       }
-
-      // Handle successful submission
+  
       onCancel();
       reset();
-
-      // Optional: Show success notification
-      // toast.success("Hanzi saved successfully!");
     } catch (error) {
       console.error("Submission error:", error);
-      // You might want to show an error message to the user here
+      // Add user-friendly error handling here
+      alert(error instanceof Error ? error.message : "An unknown error occurred");
     }
   };
 
@@ -168,277 +171,303 @@ export function HanziForm({ initialValues, onCancel }: HanziFormProps) {
   }, [watch("is_identical")]);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        {/* Standard Character */}
-        <div>
-          <Label>Standard Character *</Label>
-          <Input {...register("standard_character")} maxLength={1} />
-          {errors.standard_character && (
-            <p className="text-sm text-red-500">
-              {errors.standard_character.message}
-            </p>
-          )}
-        </div>
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto p-1"
+    >
+      {/* Character Section */}
+      <div className="bg-card rounded-lg shadow-sm border p-4">
+        <h3 className="font-medium text-lg mb-3">Character Information</h3>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Simplified *</Label>
+              <Input {...register("standard_character")} maxLength={1} />
+              {errors.standard_character && (
+                <p className="text-sm text-destructive mt-1">
+                  {errors.standard_character.message}
+                </p>
+              )}
+            </div>
 
-        {/* Traditional Character (conditionally shown) */}
-        {!watch("is_identical") && (
-          <div>
-            <Label>
-              {characterType === "simplified"
-                ? "Traditional Character *"
-                : "Simplified Character"}
-            </Label>
-            <Input {...register("traditional_character")} maxLength={1} />
-            {errors.traditional_character && (
-              <p className="text-sm text-red-500">
-                {errors.traditional_character.message}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Character Type Toggle */}
-      <div className="flex items-center space-x-2">
-        <input
-          type="checkbox"
-          id="is_identical"
-          {...register("is_identical")}
-          className="h-4 w-4"
-        />
-        <Label htmlFor="is_identical">
-          Identical in Simplified/Traditional
-        </Label>
-      </div>
-
-      {/* Pinyin */}
-      <div>
-        <Label>Pronunciations *</Label>
-        <div className="space-y-2">
-          {pinyinFields.map((field, index) => (
-            <div key={field.id} className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
-                <Input
-                  {...register(`pinyin.${index}.pronunciation`)}
-                  placeholder="shuǐ"
-                />
-                {errors.pinyin?.[index]?.pronunciation && (
-                  <p className="text-sm text-red-500">
-                    {errors.pinyin[index]?.pronunciation?.message}
+            {!watch("is_identical") && (
+              <div>
+                <Label>Traditional</Label>
+                <Input {...register("traditional_character")} maxLength={1} />
+                {errors.traditional_character && (
+                  <p className="text-sm text-destructive mt-1">
+                    {errors.traditional_character.message}
                   </p>
                 )}
               </div>
-              <div className="flex gap-2">
-                {pinyinFields.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => removePinyin(index)}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => appendPinyin({ pronunciation: "" })}
-            className="mt-2"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Pronunciation
-          </Button>
-        </div>
-      </div>
-
-      {/* Definition */}
-      <div>
-        <Label>Definition *</Label>
-        <Input {...register("definition")} />
-        {errors.definition && (
-          <p className="text-sm text-red-500">{errors.definition.message}</p>
-        )}
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        {/* Stroke Count */}
-        <div>
-          <Label>Stroke Count *</Label>
-          <Input
-            type="number"
-            {...register("stroke_count", { valueAsNumber: true })}
-            min="1"
-            max="64"
-          />
-          {errors.stroke_count && (
-            <p className="text-sm text-red-500">
-              {errors.stroke_count.message}
-            </p>
-          )}
-        </div>
-
-        {/* HSK Level */}
-        <div>
-          <Label>HSK Level *</Label>
-          <Controller
-            name="hsk_level"
-            control={control}
-            render={({ field }) => (
-              <Select
-                onValueChange={(value) => field.onChange(parseInt(value))}
-                value={field.value.toString()}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select HSK level" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5, 6].map((level) => (
-                    <SelectItem key={level} value={level.toString()}>
-                      HSK {level}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             )}
-          />
-          {errors.hsk_level && (
-            <p className="text-sm text-red-500">{errors.hsk_level.message}</p>
-          )}
-        </div>
+          </div>
 
-        {/* Frequency Rank */}
-        <div>
-          <Label>Frequency Rank</Label>
-          <Input
-            type="number"
-            {...register("frequency_rank", {
-              valueAsNumber: true,
-              setValueAs: (v) => (v === "" ? null : Number(v)),
-            })}
-            min="1"
-          />
-          {errors.frequency_rank && (
-            <p className="text-sm text-red-500">
-              {errors.frequency_rank.message}
-            </p>
-          )}
+          <div className="flex items-center space-x-2 pt-1">
+            <input
+              type="checkbox"
+              id="is_identical"
+              {...register("is_identical")}
+              className="h-4 w-4"
+            />
+            <Label htmlFor="is_identical" className="text-sm">
+              Identical in Simplified/Traditional
+            </Label>
+          </div>
         </div>
       </div>
 
-      {/* Radicals Section - Side by Side Columns with Scroll */}
-      <div>
-        <Label>Radicals</Label>
-        <div className="grid grid-cols-2 gap-4 mt-2">
-          {/* Simplified/Standard Radicals Column */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">
-              {characterType === "simplified"
-                ? "Simplified Radicals *"
-                : "Standard Radicals *"}
-            </Label>
-            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-              {standardRadicalFields.map((field, index) => (
-                <div key={field.id} className="flex gap-2 items-center">
-                  <Input
-                    type="number"
-                    {...register(`simplified_radical_ids.${index}.kangxi_id`, {
-                      valueAsNumber: true,
-                    })}
-                    placeholder="Radical ID"
-                    min="1"
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => removeStandardRadical(index)}
-                    disabled={standardRadicalFields.length <= 1}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
+      {/* Pronunciation and Definition Section */}
+      <div className="bg-card rounded-lg shadow-sm border p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Definition - Changed to Textarea */}
+          <div>
+            <h3 className="font-medium text-lg mb-3">Definition *</h3>
+            <Textarea
+              {...register("definition")}
+              className="min-h-[120px]"
+              placeholder="Enter the definition..."
+            />
+            {errors.definition && (
+              <p className="text-sm text-destructive mt-1">
+                {errors.definition.message}
+              </p>
+            )}
+          </div>
+          {/* Pronunciation */}
+          <div>
+            <h3 className="font-medium text-lg mb-3">Pronunciation</h3>
+            <div className="space-y-3">
+              {pinyinFields.map((field, index) => (
+                <div key={field.id} className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <Input
+                      {...register(`pinyin.${index}.pronunciation`)}
+                      placeholder="shuǐ"
+                    />
+                    {errors.pinyin?.[index]?.pronunciation && (
+                      <p className="text-sm text-destructive mt-1">
+                        {errors.pinyin[index]?.pronunciation?.message}
+                      </p>
+                    )}
+                  </div>
+                  {pinyinFields.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removePinyin(index)}
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
               ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendPinyin({ pronunciation: "" })}
+                className="mt-2"
+              >
+                <Plus className="h-3 w-3 mr-2" />
+                Add Pronunciation
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => appendStandardRadical({ kangxi_id: 1 })}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Radical
-            </Button>
-            {errors.simplified_radical_ids && (
-              <p className="text-sm text-red-500">
-                {errors.simplified_radical_ids.message}
+          </div>
+        </div>
+      </div>
+
+      {/* Details Section */}
+      <div className="bg-card rounded-lg shadow-sm border p-4">
+        <h3 className="font-medium text-lg mb-3">Details</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Simplified Strokes *</Label>
+            <Input
+              type="number"
+              {...register("simplified_stroke_count", { valueAsNumber: true })}
+              min="1"
+              max="64"
+            />
+            {errors.simplified_stroke_count && (
+              <p className="text-sm text-destructive mt-1">
+                {errors.simplified_stroke_count.message}
               </p>
             )}
           </div>
 
-          {/* Traditional Radicals Column - Conditionally shown */}
           {!watch("is_identical") && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                {characterType === "simplified"
-                  ? "Traditional Radicals"
-                  : "Simplified Radicals"}
-              </Label>
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                {traditionalRadicalFields.map((field, index) => (
+            <div>
+              <Label>Traditional Strokes</Label>
+              <Input
+                type="number"
+                {...register("traditional_stroke_count", {
+                  valueAsNumber: true,
+                  setValueAs: (v) => (v === "" ? null : Number(v)),
+                })}
+                min="1"
+                max="64"
+              />
+              {errors.traditional_stroke_count && (
+                <p className="text-sm text-destructive mt-1">
+                  {errors.traditional_stroke_count.message}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="col-span-2">
+            <Label>HSK Level *</Label>
+            <Controller
+              name="hsk_level"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  onValueChange={(value) => field.onChange(parseInt(value))}
+                  value={field.value.toString()}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select HSK level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6].map((level) => (
+                      <SelectItem key={level} value={level.toString()}>
+                        HSK {level}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.hsk_level && (
+              <p className="text-sm text-destructive mt-1">
+                {errors.hsk_level.message}
+              </p>
+            )}
+          </div>
+
+          <div className="col-span-2">
+            <Label>Frequency Rank</Label>
+            <Input
+              type="number"
+              {...register("frequency_rank", {
+                valueAsNumber: true,
+                setValueAs: (v) => (v === "" ? null : Number(v)),
+              })}
+              min="1"
+            />
+            {errors.frequency_rank && (
+              <p className="text-sm text-destructive mt-1">
+                {errors.frequency_rank.message}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Radicals Section */}
+      <div className="bg-card rounded-lg shadow-sm border p-4">
+        <h3 className="font-medium text-lg mb-3">Radicals</h3>
+        <div className="grid grid-cols-2 gap-3">
+          
+            <div className=" col-span-1">
+              <Label className="block mb-2">Simplified Radicals *</Label>
+              <div className="space-y-2">
+                {standardRadicalFields.map((field, index) => (
                   <div key={field.id} className="flex gap-2 items-center">
                     <Input
                       type="number"
                       {...register(
-                        `traditional_radical_ids.${index}.kangxi_id`,
+                        `simplified_radical_ids.${index}.kangxi_id`,
                         {
                           valueAsNumber: true,
                         }
                       )}
                       placeholder="Radical ID"
                       min="1"
-                      className="flex-1"
                     />
                     <Button
                       type="button"
                       variant="destructive"
-                      size="icon"
-                      onClick={() => removeTraditionalRadical(index)}
-                      disabled={
-                        !traditionalRadicalFields ||
-                        traditionalRadicalFields.length <= 1
-                      }
+                      size="sm"
+                      onClick={() => removeStandardRadical(index)}
+                      disabled={standardRadicalFields.length <= 1}
                     >
-                      <Minus className="h-4 w-4" />
+                      <Minus className="h-3 w-3" />
                     </Button>
                   </div>
                 ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => appendStandardRadical({ kangxi_id: 1 })}
+                >
+                  <Plus className="h-3 w-3 mr-2" />
+                  Add Radical
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => appendTraditionalRadical({ kangxi_id: 1 })}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Radical
-              </Button>
-              {errors.traditional_radical_ids && (
-                <p className="text-sm text-red-500">
-                  {errors.traditional_radical_ids.message}
+              {errors.simplified_radical_ids && (
+                <p className="text-sm text-destructive mt-1">
+                  {errors.simplified_radical_ids.message}
                 </p>
               )}
             </div>
-          )}
-        </div>
+
+            {!watch("is_identical") && (
+              <div className="col-span-1">
+                <Label className="block mb-2">Traditional Radicals</Label>
+                <div className="space-y-2">
+                  {traditionalRadicalFields?.map((field, index) => (
+                    <div key={field.id} className="flex gap-2 items-center">
+                      <Input
+                        type="number"
+                        {...register(
+                          `traditional_radical_ids.${index}.kangxi_id`,
+                          {
+                            valueAsNumber: true,
+                          }
+                        )}
+                        placeholder="Radical ID"
+                        min="1"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeTraditionalRadical(index)}
+                        disabled={
+                          !traditionalRadicalFields ||
+                          traditionalRadicalFields.length <= 1
+                        }
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => appendTraditionalRadical({ kangxi_id: 1 })}
+                  >
+                    <Plus className="h-3 w-3 mr-2" />
+                    Add Radical
+                  </Button>
+                </div>
+                {errors.traditional_radical_ids && (
+                  <p className="text-sm text-destructive mt-1">
+                    {errors.traditional_radical_ids.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
       </div>
 
-      <div className="flex justify-end gap-4 pt-6">
+      {/* Form Actions */}
+      <div className="flex justify-end gap-4 pt-4 sticky bottom-0 bg-background pb-4">
         <Button
           type="button"
           variant="outline"

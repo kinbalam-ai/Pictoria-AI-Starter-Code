@@ -8,7 +8,8 @@ export const sampleHanzis: Hanzi[] = [
     is_identical: true,
     pinyin: [{ pronunciation: "de" }, { pronunciation: "dí" }],
     definition: "possessive particle",
-    stroke_count: 8,
+    simplified_stroke_count: 8,
+    traditional_stroke_count: 8,
     hsk_level: 1,
     frequency_rank: 1,
     simplified_radical_ids: [
@@ -29,7 +30,8 @@ export const sampleHanzis: Hanzi[] = [
     is_identical: true,
     pinyin: [{ pronunciation: "yī" }],
     definition: "one; a, an",
-    stroke_count: 1,
+    simplified_stroke_count: 1,
+    traditional_stroke_count: 1,
     hsk_level: 1,
     frequency_rank: 2,
     simplified_radical_ids: [
@@ -44,7 +46,8 @@ export const sampleHanzis: Hanzi[] = [
     is_identical: true,
     pinyin: [{ pronunciation: "shì" }],
     definition: "to be; correct",
-    stroke_count: 9,
+    simplified_stroke_count: 9,
+    traditional_stroke_count: 9,
     hsk_level: 1,
     frequency_rank: 3,
     simplified_radical_ids: [
@@ -60,7 +63,8 @@ export const sampleHanzis: Hanzi[] = [
     is_identical: true,
     pinyin: [{ pronunciation: "bù" }],
     definition: "not; no",
-    stroke_count: 4,
+    simplified_stroke_count: 4,
+    traditional_stroke_count: 4,
     hsk_level: 1,
     frequency_rank: 4,
     simplified_radical_ids: [
@@ -81,7 +85,8 @@ export const sampleHanzis: Hanzi[] = [
     is_identical: true,
     pinyin: [{ pronunciation: "le" }],
     definition: "completed action marker",
-    stroke_count: 2,
+    simplified_stroke_count: 2,
+    traditional_stroke_count: 2,
     hsk_level: 1,
     frequency_rank: 5,
     simplified_radical_ids: [
@@ -97,7 +102,8 @@ export const sampleHanzis: Hanzi[] = [
     is_identical: false,
     pinyin: [{ pronunciation: "guó" }],
     definition: "country",
-    stroke_count: 8,
+    simplified_stroke_count: 8,
+    traditional_stroke_count: 11,
     hsk_level: 1,
     frequency_rank: 20,
     simplified_radical_ids: [
@@ -118,7 +124,8 @@ export const sampleHanzis: Hanzi[] = [
     is_identical: false,
     pinyin: [{ pronunciation: "ài" }],
     definition: "love",
-    stroke_count: 10,
+    simplified_stroke_count: 10,
+    traditional_stroke_count: 13,
     hsk_level: 1,
     frequency_rank: 394,
     simplified_radical_ids: [

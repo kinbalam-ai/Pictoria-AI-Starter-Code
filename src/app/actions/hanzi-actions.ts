@@ -8,12 +8,13 @@ import { revalidatePath } from "next/cache";
 import { Hanzi } from "../(dashboard)/hanzis/_components/types";
 
 interface HanziInput {
+  id: number;
   standard_character: string;
   traditional_character: string | null;
   is_identical: boolean;
   pinyin: { pronunciation: string }[];
   definition: string;
-  stroke_count: number;
+  simplified_stroke_count: number;
   hsk_level: number;
   frequency_rank?: number | null;
   simplified_radical_ids: { kangxi_id: number }[];
@@ -135,7 +136,8 @@ export async function getHanzis(
         is_identical,
         pinyin,
         definition,
-        stroke_count,
+        simplified_stroke_count,
+        traditional_stroke_count,
         hsk_level,
         frequency_rank,
         simplified_radical_ids,
@@ -189,13 +191,44 @@ export async function getHanzis(
   }
 }
 
+export async function updateHanzi(id: number, data: Partial<Hanzi>) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return {
+      error: "Unauthorized - You must be logged in to save hanzis",
+      success: false,
+      data: null,
+    };
+  }
+
+  console.log("update Hanzi", data)
+  const { data: updatedHanzi, error } = await supabase
+    .from('hanzis')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  // Revalidate cached paths
+  revalidatePath("/hanzis");
+  revalidatePath("/dashboard/hanzis");
+  return { success: true, data: updatedHanzi };
+}
+
 export async function deleteHanzi(id: number): Promise<{
   success: boolean;
   error?: string;
 }> {
   const supabase = await createClient();
-
-  
 
   try {
     // Verify user authentication

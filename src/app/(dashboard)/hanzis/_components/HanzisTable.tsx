@@ -88,7 +88,11 @@ export default function HanziTable({
       header: "Definition",
     },
     {
-      accessorKey: "stroke_count",
+      accessorKey: "simplified_stroke_count",
+      header: "Strokes",
+    },
+    {
+      accessorKey: "traditional_stroke_count",
       header: "Strokes",
     },
     {

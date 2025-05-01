@@ -5,7 +5,8 @@ export interface Hanzi {
   is_identical: boolean;
   pinyin: { pronunciation: string }[];
   definition: string;
-  stroke_count: number;
+  simplified_stroke_count: number;
+  traditional_stroke_count: number | null;
   hsk_level: number;
   frequency_rank?: number | null;
   simplified_radical_ids: { kangxi_id: number }[];
