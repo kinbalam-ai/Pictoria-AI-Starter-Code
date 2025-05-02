@@ -17,10 +17,11 @@ export default function RadicalsPage() {
   // Fetch radicals with pagination
   const fetchRadicals = async () => {
     const result = await getRadicals({ page, limit });
+    // console.log("result: ", result);
     if (result.data) {
       setRadicalsData({
         radicals: result.data,
-        total: result.total || result.data.length
+        total: result.total || result.data.length,
       });
     }
   };
@@ -29,6 +30,15 @@ export default function RadicalsPage() {
   useEffect(() => {
     fetchRadicals();
   }, [page, limit]);
+
+  // // !! Add this useEffect to verify your initial state
+  // useEffect(() => {
+  //   console.log("Current state:", {
+  //     page,
+  //     limit,
+  //     radicalsData,
+  //   });
+  // }, [page, limit, radicalsData]);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);

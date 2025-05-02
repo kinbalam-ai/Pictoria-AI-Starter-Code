@@ -145,7 +145,7 @@ export async function getHanzis(
       `,
         { count: "exact" } // Get total count for pagination
       )
-      .eq("user_id", user.id)
+      // .eq("user_id", user.id)
       .order("frequency_rank", { ascending: true })
       .range(offset, offset + limit - 1);
 

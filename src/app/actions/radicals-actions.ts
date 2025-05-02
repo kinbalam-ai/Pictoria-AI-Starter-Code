@@ -91,6 +91,9 @@ export async function saveRadicals(
 export async function getRadicals(
   params?: GetRadicalsParams
 ): Promise<PaginatedRadicalsResponse> {
+  // !!
+  // console.log(`Fetching page ${params?.page} with limit ${params?.limit}`);
+
   const cacheOptions = {
     cache: "force-cache",
     next: { tags: ["radicals"] },
@@ -132,7 +135,7 @@ export async function getRadicals(
       `,
         { count: "exact" }
       )
-      .eq("user_id", user.id)
+      // .eq("user_id", user.id)
       .order("kangxi_number", { ascending: true })
       .range(offset, offset + limit - 1);
 
@@ -149,6 +152,8 @@ export async function getRadicals(
 
     if (error) throw error;
 
+    // !!
+    // console.log("Raw Supabase response:", { data, error, count });
     return {
       data: data || [],
       total: count || 0,
