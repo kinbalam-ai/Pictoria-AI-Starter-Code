@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// app/actions/saveRadical.ts
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +21,22 @@ interface RadicalResponse {
   data: any | null;
 }
 
+interface GetRadicalsParams {
+  limit?: number;
+  page?: number;
+  hsk_level?: number;
+  search_term?: string;
+}
+
+interface PaginatedRadicalsResponse {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+  error?: string;
+}
+
 export async function saveRadicals(
   data: RadicalInput[]
 ): Promise<RadicalResponse> {
@@ -29,9 +45,6 @@ export async function saveRadicals(
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
-  console.log("Authenticated user ID:", user?.id);
-  console.log("JWT exists:", !!supabase.auth.getSession());
-  console.log("Session valid:", await supabase.auth.getSession());
 
   if (authError || !user) {
     return {
@@ -42,20 +55,11 @@ export async function saveRadicals(
   }
 
   try {
-    // PROPERLY format the insert data
     const insertPayload = data.map((radical) => ({
-      forms: radical.forms, // Already an array - don't stringify!
-      pinyin: radical.pinyin, // Already an array - don't stringify!
-      kangxi_number: radical.kangxi_number,
-      name_en: radical.name_en,
-      meaning: radical.meaning,
-      hsk_level: radical.hsk_level,
-      user_id: user.id, // Must match auth.uid()
-      // created_at: new Date(), // Let Supabase handle conversion
+      ...radical,
+      user_id: user.id,
     }));
-    console.log("Insert payload:", JSON.stringify(insertPayload, null, 2));
 
-    // Insert all radicals in a single transaction
     const { data: dbData, error: dbError } = await supabase
       .from("radicals")
       .insert(insertPayload)
@@ -66,7 +70,6 @@ export async function saveRadicals(
       throw dbError;
     }
 
-    // Revalidate paths
     revalidatePath("/radicals");
     revalidatePath("/dashboard/radicals");
 
@@ -85,12 +88,12 @@ export async function saveRadicals(
   }
 }
 
-export async function getRadicals(limit?: number) {
+export async function getRadicals(
+  params?: GetRadicalsParams
+): Promise<PaginatedRadicalsResponse> {
   const cacheOptions = {
     cache: "force-cache",
-    next: {
-      tags: ["radicals"], // Customize cache tags as needed
-    },
+    next: { tags: ["radicals"] },
   };
 
   const supabase = await createClientWithOptions(cacheOptions);
@@ -100,106 +103,152 @@ export async function getRadicals(limit?: number) {
 
   if (!user) {
     return {
-      error: "Unauthorized",
-      success: false,
-      data: null,
-    };
-  }
-
-  let query = supabase
-    .from("radicals")
-    .select(`
-      id,
-      created_at,
-      forms,
-      pinyin,
-      kangxi_number,
-      name_en,
-      meaning,
-      hsk_level
-    `)
-    .eq("user_id", user.id)
-    .order("kangxi_number", { ascending: true }); // Ordered by Kangxi number
-
-  if (limit) {
-    query = query.limit(limit);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    return {
-      error: error.message || "Failed to fetch radicals",
-      success: false,
-      data: null,
-    };
-  }
-
-  // Format the data for easier consumption
-  const formattedRadicals = data.map((radical) => ({
-    ...radical,
-    // Add any additional formatting here
-    primary_form: radical.forms[0]?.variant || "",
-    primary_pinyin: radical.pinyin[0]?.pronunciation || "",
-  }));
-
-  return {
-    error: null,
-    success: true,
-    data: formattedRadicals || null,
-  };
-}
-
-export async function deleteRadical(id: number) {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return {
-      error: "Unauthorized",
-      success: false,
-      message: "Failed to delete radical - not authenticated",
-      data: null
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 10,
+      total_pages: 0,
+      error: "Unauthorized - You must be logged in to view radicals",
     };
   }
 
   try {
-    // First delete from database
-    console.log("deleteRadical...")
-    const { error: deleteError, data } = await supabase
-      .from("radicals")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", user.id) // Ensure user can only delete their own radicals
-      .select();
+    const limit = params?.limit || 10;
+    const page = params?.page || 1;
+    const offset = (page - 1) * limit;
 
-    if (deleteError) {
-      return {
-        error: deleteError.message,
-        success: false,
-        message: "Database deletion failed",
-        data: null
-      };
+    let query = supabase
+      .from("radicals")
+      .select(
+        `
+        id,
+        created_at,
+        forms,
+        pinyin,
+        kangxi_number,
+        name_en,
+        meaning,
+        hsk_level
+      `,
+        { count: "exact" }
+      )
+      .eq("user_id", user.id)
+      .order("kangxi_number", { ascending: true })
+      .range(offset, offset + limit - 1);
+
+    if (params?.hsk_level) {
+      query = query.eq("hsk_level", params.hsk_level);
+    }
+    if (params?.search_term) {
+      query = query.or(
+        `name_en.ilike.%${params.search_term}%,meaning.ilike.%${params.search_term}%`
+      );
     }
 
-    // Revalidate cached data
+    const { data, count, error } = await query;
+
+    if (error) throw error;
+
+    return {
+      data: data || [],
+      total: count || 0,
+      page,
+      limit,
+      total_pages: Math.ceil((count || 0) / limit),
+    };
+  } catch (error) {
+    console.error("Failed to fetch radicals:", error);
+    return {
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 10,
+      total_pages: 0,
+      error: error instanceof Error ? error.message : "Database error",
+    };
+  }
+}
+
+export async function updateRadical(id: number, data: Partial<RadicalInput>) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return {
+      error: "Unauthorized - You must be logged in to update radicals",
+      success: false,
+      data: null,
+    };
+  }
+
+  const { data: updatedRadical, error } = await supabase
+    .from("radicals")
+    .update(data)
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/radicals");
+  revalidatePath("/dashboard/radicals");
+  return { success: true, data: updatedRadical };
+}
+
+export async function deleteRadical(id: number): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const supabase = await createClient();
+
+  try {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error(
+        "Unauthorized - You must be logged in to delete radicals"
+      );
+    }
+
+    const { data: existing, error: fetchError } = await supabase
+      .from("radicals")
+      .select("id")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (fetchError) {
+      throw new Error("Radical not found or access denied");
+    }
+
+    const { error } = await supabase
+      .from("radicals")
+      .delete()
+      .match({ id, user_id: user.id });
+
+    if (error) {
+      throw new Error(error.message || "Failed to delete radical");
+    }
+
     revalidatePath("/radicals");
     revalidatePath("/dashboard/radicals");
 
-    return {
-      error: null,
-      success: true,
-      message: "Radical deleted successfully",
-      data: data[0] // Return the deleted radical
-    };
-
+    return { success: true };
   } catch (error) {
     console.error("Failed to delete radical:", error);
     return {
-      error: error instanceof Error ? error.message : "Unknown error",
       success: false,
-      message: "Failed to delete radical",
-      data: null
+      error:
+        error instanceof Error ? error.message : "An unknown error occurred",
     };
   }
 }

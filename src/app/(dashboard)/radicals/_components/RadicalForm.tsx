@@ -1,3 +1,5 @@
+// app/radicals/_components/RadicalForm.tsx
+"use client";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,11 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { saveRadicals } from "@/app/actions/radicals-actions";
-import { Radical } from "./RadicalsTable";
+import { saveRadicals, updateRadical } from "@/app/actions/radicals-actions";
+import { Radical } from "./types";
+import { Textarea } from "@/components/ui/textarea";
 
-// Updated Zod schema with required HSK level
 const radicalSchema = z.object({
+  id: z.number().optional(),
   forms: z
     .array(
       z.object({
@@ -38,7 +41,7 @@ const radicalSchema = z.object({
           .string()
           .min(1, "Pinyin is required")
           .regex(/^[a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s\d]+$/, {
-            message: "Invalid pinyin format - must include valid tone marks",
+            message: "Invalid pinyin format",
           }),
       })
     )
@@ -56,10 +59,10 @@ const radicalSchema = z.object({
 });
 
 type RadicalFormValues = z.infer<typeof radicalSchema>;
+
 interface RadicalFormProps {
   initialValues?: Radical | null;
   onCancel: () => void;
-  // onSubmit: (values: RadicalFormValues) => Promise<void> | void;
 }
 
 export function RadicalForm({ initialValues, onCancel }: RadicalFormProps) {
@@ -68,17 +71,17 @@ export function RadicalForm({ initialValues, onCancel }: RadicalFormProps) {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setError,
     reset,
+    setError,
   } = useForm<RadicalFormValues>({
     resolver: zodResolver(radicalSchema),
-    defaultValues: {
-      forms: initialValues?.forms || [{ variant: "", strokes: 4 }],
-      pinyin: initialValues?.pinyin || [{ pronunciation: "" }],
-      kangxi_number: initialValues?.kangxi_number || 1,
-      hsk_level: initialValues?.hsk_level || 1,
-      name_en: initialValues?.name_en || "",
-      meaning: initialValues?.meaning || "",
+    defaultValues: initialValues || {
+      forms: [{ variant: "", strokes: 4 }],
+      pinyin: [{ pronunciation: "" }],
+      kangxi_number: 1,
+      hsk_level: 1,
+      name_en: "",
+      meaning: "",
     },
   });
 
@@ -102,205 +105,225 @@ export function RadicalForm({ initialValues, onCancel }: RadicalFormProps) {
 
   const onSubmit = async (values: RadicalFormValues) => {
     try {
-      console.log("Form values:", values);
-      const result = await saveRadicals([values]);
-
-      if (!result.success) {
-        setError("root", {
-          type: "manual",
-          message: result.error || "Failed to save radical",
-        });
-        return;
+      let result;
+      if (initialValues?.id) {
+        result = await updateRadical(initialValues.id, values);
+      } else {
+        result = await saveRadicals([values]);
       }
 
-      // On successful submission:
-      onCancel(); // Close the dialog
-      reset(); // Reset the form
+      if (!result.success) {
+        throw new Error(result.error || "Failed to save radical");
+      }
 
-      // Optional: Add toast notification
-      // toast.success("Radical saved successfully");
+      onCancel();
+      reset();
     } catch (error) {
       console.error("Submission error:", error);
       setError("root", {
         type: "manual",
-        message: "An unexpected error occurred",
+        message:
+          error instanceof Error ? error.message : "An unknown error occurred",
       });
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Combined Forms and Strokes Section */}
-      <div>
-        <Label>Variant Forms *</Label>
-        <div className="space-y-2">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto p-1"
+    >
+      {/* Variant Forms Section */}
+      <div className="bg-card rounded-lg shadow-sm border p-4">
+        <h3 className="font-medium text-lg mb-3">Variant Forms *</h3>
+        <div className="space-y-3">
           {formFields.map((field, index) => (
-            <div key={field.id} className="grid grid-cols-3 gap-2">
+            <div key={field.id} className="grid grid-cols-3 gap-3">
               <div className="col-span-2">
+                <Label>Character</Label>
                 <Input
                   {...register(`forms.${index}.variant`)}
                   placeholder="水 or 氵"
                 />
                 {errors.forms?.[index]?.variant && (
-                  <p className="text-sm text-red-500">
+                  <p className="text-sm text-destructive mt-1">
                     {errors.forms[index]?.variant?.message}
                   </p>
                 )}
               </div>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  {...register(`forms.${index}.strokes`, {
-                    valueAsNumber: true,
-                  })}
-                  placeholder="Strokes"
-                  min="1"
-                  max="20"
-                />
-                {formFields.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => removeForm(index)}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                )}
+              <div>
+                <Label>Strokes</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    {...register(`forms.${index}.strokes`, {
+                      valueAsNumber: true,
+                    })}
+                    min="1"
+                    max="20"
+                  />
+                  {formFields.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="mt-auto"
+                      onClick={() => removeForm(index)}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
-          {errors.forms?.message && (
-            <p className="text-sm text-red-500">{errors.forms.message}</p>
-          )}
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => appendForm({ variant: "", strokes: 3 })}
-            className="mt-2"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Form Variant
           </Button>
+          {errors.forms?.message && (
+            <p className="text-sm text-destructive mt-1">
+              {errors.forms.message}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Dynamic Pinyin Section */}
-      <div>
-        <Label>Pronunciations *</Label>
-        <div className="space-y-2">
+      {/* Pronunciation Section */}
+      <div className="bg-card rounded-lg shadow-sm border p-4">
+        <h3 className="font-medium text-lg mb-3">Pronunciations *</h3>
+        <div className="space-y-3">
           {pinyinFields.map((field, index) => (
-            <div key={field.id} className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
+            <div key={field.id} className="flex gap-2 items-start">
+              <div className="flex-1">
                 <Input
                   {...register(`pinyin.${index}.pronunciation`)}
                   placeholder="shuǐ"
                 />
                 {errors.pinyin?.[index]?.pronunciation && (
-                  <p className="text-sm text-red-500">
+                  <p className="text-sm text-destructive mt-1">
                     {errors.pinyin[index]?.pronunciation?.message}
                   </p>
                 )}
               </div>
-              <div className="flex gap-2">
-                {pinyinFields.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => removePinyin(index)}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
+              {pinyinFields.length > 1 && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => removePinyin(index)}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           ))}
-          {errors.pinyin?.message && (
-            <p className="text-sm text-red-500">{errors.pinyin.message}</p>
-          )}
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => appendPinyin({ pronunciation: "" })}
-            className="mt-2"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Pronunciation
           </Button>
+          {errors.pinyin?.message && (
+            <p className="text-sm text-destructive mt-1">
+              {errors.pinyin.message}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Kangxi Number Field */}
-      <div>
-        <Label>Kangxi Number *</Label>
-        <Input
-          type="number"
-          {...register("kangxi_number", { valueAsNumber: true })}
-          min="1"
-          max="214"
-          placeholder="Enter Kangxi number (1-214)"
-        />
-        {errors.kangxi_number && (
-          <p className="text-sm text-red-500">{errors.kangxi_number.message}</p>
-        )}
+      {/* Details Section */}
+      <div className="bg-card rounded-lg shadow-sm border p-4">
+        <h3 className="font-medium text-lg mb-3">Details</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Kangxi Number *</Label>
+            <Input
+              type="number"
+              {...register("kangxi_number", { valueAsNumber: true })}
+              min="1"
+              max="214"
+            />
+            {errors.kangxi_number && (
+              <p className="text-sm text-destructive mt-1">
+                {errors.kangxi_number.message}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Label>HSK Level *</Label>
+            <Controller
+              name="hsk_level"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  value={field.value.toString()}
+                  onValueChange={(value) => field.onChange(parseInt(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select HSK level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6].map((level) => (
+                      <SelectItem key={level} value={level.toString()}>
+                        HSK {level}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.hsk_level && (
+              <p className="text-sm text-destructive mt-1">
+                {errors.hsk_level.message}
+              </p>
+            )}
+          </div>
+
+          <div className="col-span-2">
+            <Label>English Name *</Label>
+            <Input {...register("name_en")} />
+            {errors.name_en && (
+              <p className="text-sm text-destructive mt-1">
+                {errors.name_en.message}
+              </p>
+            )}
+          </div>
+
+          <div className="col-span-2">
+            <Label>Meaning *</Label>
+            <Textarea {...register("meaning")} className="min-h-[100px]" />
+            {errors.meaning && (
+              <p className="text-sm text-destructive mt-1">
+                {errors.meaning.message}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* HSK Level Field - Required with default value 1 */}
-
-      <div>
-        <Label>HSK Level *</Label>
-        <Controller
-          name="hsk_level"
-          control={control}
-          render={({ field }) => (
-            <Select
-              value={field.value.toString()}
-              onValueChange={(value) => field.onChange(parseInt(value))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select HSK level" />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5, 6].map((level) => (
-                  <SelectItem key={level} value={level.toString()}>
-                    HSK {level}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-        {errors.hsk_level && (
-          <p className="text-sm text-red-500">{errors.hsk_level.message}</p>
-        )}
-      </div>
-
-      {/* English Name Field */}
-      <div>
-        <Label>English Name *</Label>
-        <Input {...register("name_en")} placeholder="Water Radical" />
-        {errors.name_en && (
-          <p className="text-sm text-red-500">{errors.name_en.message}</p>
-        )}
-      </div>
-
-      {/* Meaning Field */}
-      <div>
-        <Label>Meaning *</Label>
-        <Input {...register("meaning")} placeholder="Related to liquids" />
-        {errors.meaning && (
-          <p className="text-sm text-red-500">{errors.meaning.message}</p>
-        )}
-      </div>
-
-      <div className="flex justify-end gap-4 pt-6">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      {/* Form Actions */}
+      <div className="flex justify-end gap-4 pt-4 sticky bottom-0 bg-background pb-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={isSubmitting}
+        >
           Cancel
         </Button>
-        <Button disabled={isSubmitting} type="submit">Save Radical</Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Saving..." : "Save Radical"}
+        </Button>
       </div>
     </form>
   );

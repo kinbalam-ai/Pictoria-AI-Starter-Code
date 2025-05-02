@@ -3,8 +3,6 @@
 import {
   useReactTable,
   getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
@@ -18,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { ArrowUpDown, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react'
+import { ArrowUpDown, Edit, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteRadical } from '@/app/actions/radicals-actions'
 import useRadicalDialogStore from '@/store/useRadicalDialogStore'
@@ -40,13 +38,22 @@ export interface Radical {
 
 interface RadicalsTableProps {
   radicals: Radical[];
-  // onDelete?: (id: number) => Promise<void>; // Add this
+  totalCount: number;
+  page: number;
+  limit: number;
+  onPageChange: (page: number) => void;
+  onLimitChange: (limit: number) => void;
 }
 
-export function RadicalsTable({ radicals }: RadicalsTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [rowSelection, setRowSelection] = useState({})
-
+export function RadicalsTable({ 
+  radicals,
+  totalCount,
+  page,
+  limit,
+  onPageChange,
+  onLimitChange,
+}: RadicalsTableProps) {
+  const [sorting, setSorting] = useState<SortingState>([]);
   const { openDialog } = useRadicalDialogStore();
 
   const onDelete = async (id: number) => {
@@ -54,7 +61,6 @@ export function RadicalsTable({ radicals }: RadicalsTableProps) {
     if (!result.success) {
       throw new Error(result.error || "Failed to delete radical");
     }
-    // Next.js will automatically re-render the page
   };
 
   const columns: ColumnDef<Radical>[] = [
@@ -154,12 +160,8 @@ export function RadicalsTable({ radicals }: RadicalsTableProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={async () => {
-              if (onDelete) {
-                await onDelete(row.original.id);
-              }
-            }}
-            className="h-8 w-8 p-0 hover:bg-red-50" // Added hover effect
+            onClick={async () => await onDelete(row.original.id)}
+            className="h-8 w-8 p-0 hover:bg-red-50"
           >
             <Trash2 className="h-4 w-4 text-red-500" />
           </Button>
@@ -173,18 +175,10 @@ export function RadicalsTable({ radicals }: RadicalsTableProps) {
     columns,
     state: {
       sorting,
-      rowSelection,
     },
     onSortingChange: setSorting,
-    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: {
-        pageSize: 5,
-      },
-    },
+    manualPagination: true, // We handle pagination server-side
   })
 
   return (
@@ -224,28 +218,48 @@ export function RadicalsTable({ radicals }: RadicalsTableProps) {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Page {table.getState().pagination.pageIndex + 1} of{' '}
-          {table.getPageCount()}
+      {/* Pagination Controls - matching HanziTable style */}
+      <div className="flex items-center justify-between px-2">
+        <div className="flex items-center space-x-6 lg:space-x-8">
+          <div className="flex items-center space-x-0">
+            <select
+              value={limit}
+              onChange={(e) => onLimitChange(Number(e.target.value))}
+              className="h-8 w-[70px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              {[5, 10, 20, 30, 40, 50].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(page - 1)}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(page + 1)}
+              disabled={page * limit >= totalCount}
+            >
+              Next
+            </Button>
+          </div>
         </div>
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+
+        <div className="flex items-center space-x-2">
+          <p className="text-sm text-muted-foreground">
+            Showing {(page - 1) * limit + 1}-
+            {Math.min(page * limit, totalCount)} of {totalCount} radicals
+          </p>
         </div>
       </div>
     </div>

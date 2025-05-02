@@ -3,10 +3,11 @@
 // app/radicals/page.tsx
 "use client";
 import { useEffect, useState } from "react";
-import { getHanzis } from "@/app/actions/hanzi-actions";
+
 import HanzisTable from "./_components/HanzisTable";
 import { Hanzi } from "./_components/types";
 import { AddHanziButton } from "./_components/AddHanziButton";
+import { getHanzis } from "@/app/actions/hanzi-actions";
 
 export default function HanzisPage() {
   const [page, setPage] = useState(1);
