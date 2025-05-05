@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Hanzi } from "./types";
 import useHanziDialogStore from "@/store/useHanziDialogStore";
 import { deleteHanzi } from "@/app/actions/hanzi-actions";
+import Link from "next/link";
 // import { deleteHanzi } from "@/app/actions/hanzi-actions";
 
 interface HanziTableProps {
@@ -59,11 +60,26 @@ export default function HanziTable({
     {
       accessorKey: "standard_character",
       header: "Standard",
+      cell: ({ row }) => (
+        <Link
+          href={`hanzi?character=${row.original.standard_character}`}
+          className="flex flex-wrap gap-1"
+        >
+          {row.original.standard_character}
+        </Link>
+      ),
     },
     {
       accessorKey: "traditional_character",
       header: "Traditional",
-      cell: ({ row }) => row.original.traditional_character || "-",
+      cell: ({ row }) => (
+        <Link
+          href={`hanzi?character=${row.original.traditional_character}`}
+          className="flex flex-wrap gap-1"
+        >
+          {row.original.traditional_character}
+        </Link>
+      ),
     },
     {
       accessorKey: "is_identical",
@@ -208,8 +224,6 @@ export default function HanziTable({
 
       {/* Pagination Controls */}
       <div className="flex items-center justify-between px-2">
-        
-
         <div className="flex items-center space-x-6 lg:space-x-8">
           <div className="flex items-center space-x-0">
             {/* <p className="text-sm font-medium">Rows per page</p> */}
