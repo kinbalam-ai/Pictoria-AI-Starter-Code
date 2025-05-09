@@ -191,6 +191,65 @@ export async function getHanzis(
   }
 }
 
+export async function getHanziByCharacter(
+  character: string
+): Promise<HanziResponse> {
+  const supabase = await createClientWithOptions({
+    cache: "force-cache",
+    next: { tags: ["hanzis"] },
+  });
+
+  try {
+    // First try to find by standard character (simplified)
+    const { data, error } = await supabase
+      .from("hanzis")
+      .select(
+        `
+        id,
+        created_at,
+        standard_character,
+        traditional_character,
+        is_identical,
+        pinyin,
+        definition,
+        simplified_stroke_count,
+        traditional_stroke_count,
+        hsk_level,
+        frequency_rank,
+        simplified_radical_ids,
+        traditional_radical_ids
+      `
+      )
+      .or(
+        `standard_character.eq.${character},traditional_character.eq.${character}`
+      )
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      return {
+        error: "Hanzi not found",
+        success: false,
+        data: null,
+      };
+    }
+
+    return {
+      error: null,
+      success: true,
+      data: data,
+    };
+  } catch (error) {
+    console.error("Failed to fetch hanzi:", error);
+    return {
+      error: error instanceof Error ? error.message : "Database error",
+      success: false,
+      data: null,
+    };
+  }
+}
+
 export async function updateHanzi(id: number, data: Partial<Hanzi>) {
   const supabase = await createClient();
   const {
@@ -206,11 +265,11 @@ export async function updateHanzi(id: number, data: Partial<Hanzi>) {
     };
   }
 
-  console.log("update Hanzi", data)
+  console.log("update Hanzi", data);
   const { data: updatedHanzi, error } = await supabase
-    .from('hanzis')
+    .from("hanzis")
     .update(data)
-    .eq('id', id)
+    .eq("id", id)
     .select()
     .single();
 

@@ -1,15 +1,16 @@
 // app/page.tsx
 import Link from "next/link";
-import HanziEntry from './_components/HanziEntry';
+import HanziEntry from "./_components/HanziEntry";
 import ComponentB from "./_components/ComponentB";
-import ComponentA from "./_components/ComponentA";
+// import ComponentA from "./_components/ComponentA";
+import BasicHanziInfo from "./_components/BasicHanziInfo";
 
 export default async function Home({
   searchParams,
 }: {
   searchParams: { character?: string };
 }) {
-  const { character: hanzi } =  await searchParams;
+  const { character: hanzi } = await searchParams;
 
   if (!hanzi) {
     return (
@@ -65,18 +66,21 @@ export default async function Home({
 
   return (
     <main className="flex min-h-screen">
-      {/* Left fixed sidebar - ComponentA */}
-      <div className="w-64 sticky top-0 h-screen overflow-y-auto p-4 border-r border-gray-200 bg-white">
-        <ComponentA />
-      </div>
+      {/* Left column (ComponentA + HanziEntry) */}
+      <div className="flex-1 flex flex-col lg:flex-row">
+        {/* ComponentA - appears above on mobile, side-by-side on desktop */}
+        <div className="lg:w-64 lg:sticky lg:top-0 lg:h-screen overflow-y-auto p-4 border-b lg:border-b-0 lg:border-r border-gray-200 bg-white">
+          <BasicHanziInfo />
+        </div>
 
-      {/* Scrollable main content - HanziEntry */}
-      <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
-        <HanziEntry />
+        {/* HanziEntry - main scrollable content */}
+        <div className="flex-1 overflow-y-auto p-6 lg:p-8 bg-gray-50">
+          <HanziEntry />
+        </div>
       </div>
 
       {/* Right fixed sidebar - ComponentB */}
-      <div className="w-64 sticky top-0 h-screen overflow-y-auto p-4 border-l border-gray-200 bg-white">
+      <div className="hidden lg:block w-64 sticky top-0 h-screen overflow-y-auto p-4 border-l border-gray-200 bg-white">
         <ComponentB />
       </div>
     </main>
