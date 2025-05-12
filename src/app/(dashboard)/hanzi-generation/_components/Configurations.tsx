@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Info, ChevronDown, ChevronUp } from "lucide-react";
 import {
@@ -31,6 +31,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Hanzi } from "../../hanzis/_components/types";
 
 type ModelConfig = {
@@ -151,13 +153,17 @@ const Configurations = ({
   character,
 }: ConfigurationsProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showTraditional, setShowTraditional] = useState(() => {
+    // Default to showing traditional if the URL character matches traditional
+    return hanziData?.traditional_character === character;
+  });
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      model: "jagilley/controlnet-scribble",
+      model: model_id || "jagilley/controlnet-scribble",
       prompt: "",
       seed: -1,
-      // Initialize all model-specific fields
       ...Object.values(MODEL_CONFIGS).reduce((acc, config) => {
         Object.entries(config.fields).forEach(([key, field]) => {
           acc[key as keyof typeof acc] = field.default;
@@ -169,19 +175,16 @@ const Configurations = ({
 
   const selectedModel = form.watch("model");
 
-  useEffect(() => {
-    const config = MODEL_CONFIGS[selectedModel];
-    if (config) {
-      // Reset all fields to their defaults when model changes
-      // form.reset({
-      //   ...form.getValues(),
-      //   ...config.defaults,
-      //   ...Object.fromEntries(
-      //     Object.entries(config.fields).map(([key, field]) => [key, field.default]
-      //   )
-      // });
-    }
-  }, [selectedModel, form]);
+  // Determine which character to display
+  const displayCharacter =
+    showTraditional && hanziData?.traditional_character
+      ? hanziData.traditional_character
+      : hanziData?.standard_character || character;
+
+  // Only show toggle if there are actually different traditional/simplified versions
+  const showVariantToggle =
+    hanziData?.traditional_character &&
+    hanziData.traditional_character !== hanziData.standard_character;
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log("Submitting values:", values);
@@ -196,39 +199,67 @@ const Configurations = ({
           onSubmit={form.handleSubmit(onSubmit)}
           className="w-full space-y-4"
         >
-          {" "}
-          {/* Changed to space-y-4 */}
           {/* Hanzi Details - Top Section */}
           {hanziData && (
-            <fieldset className="rounded-lg border p-4 bg-background">
+            <fieldset className="rounded-lg border p-4 bg-background relative">
+              {/* Variant toggle in top-right corner */}
+              {hanziData.traditional_character &&
+                hanziData.traditional_character !==
+                  hanziData.standard_character && (
+                  <div className="absolute top-4 right-4 flex items-center gap-2">
+                    <Switch
+                      checked={showTraditional}
+                      onCheckedChange={setShowTraditional}
+                      className="data-[state=checked]:bg-primary"
+                    />
+                    <span className="text-sm font-medium">
+                      {hanziData.standard_character}
+                    </span>
+                    {"/"}
+                    <span className="text-sm font-medium">
+                      {hanziData.traditional_character}
+                    </span>
+                  </div>
+                )}
+
               <legend className="-ml-1 px-1 text-sm font-medium">
                 Hanzi Details
               </legend>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center justify-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <span className="text-4xl font-bold">{character}</span>
+
+              <div className="flex items-center gap-4 pt-2">
+                <div className="flex items-center justify-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 w-16 h-16">
+                  <span className="text-4xl font-bold">
+                    {showTraditional && hanziData.traditional_character
+                      ? hanziData.traditional_character
+                      : hanziData.standard_character || character}
+                  </span>
                 </div>
-                <div className="grid gap-1">
-                  {/* <div className="flex gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Pinyin</p>
-                      <p className="font-medium">{hanziData.pinyin || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Strokes</p>
-                      <p className="font-medium">{hanziData.stroke_count || 'N/A'}</p>
-                    </div>
-                  </div> */}
+
+                <div className="grid gap-1 flex-1">
                   <div>
-                    <p className="text-xs text-muted-foreground">Definition</p>
-                    <p className="font-medium line-clamp-2">
-                      {hanziData.definition || "No definition"}
+                    <p className="text-sm text-muted-foreground">Definition</p>
+                    <p className="font-medium">
+                      {hanziData.definition || "No definition available"}
                     </p>
                   </div>
+                  {/* <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Pinyin</p>
+            <p className="font-medium">{hanziData.pinyin || 'N/A'}</p>
+          </div>
+          {hanziData.stroke_count && (
+            <div>
+              <p className="text-sm text-muted-foreground">Strokes</p>
+              <p className="font-medium">{hanziData.stroke_count}</p>
+            </div>
+          )}
+        </div> */}
                 </div>
               </div>
             </fieldset>
           )}
+
+          {/* Rest of the form remains unchanged */}
           <fieldset className="grid gap-6 rounded-lg border p-4 bg-background">
             <legend className="-ml-1 px-1 text-sm font-medium">Settings</legend>
 
@@ -240,7 +271,7 @@ const Configurations = ({
                   <FormLabel>Model</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="jagilley/controlnet-scribble">
@@ -249,8 +280,20 @@ const Configurations = ({
                       <SelectItem value="qr2ai/img2paint_controlnet">
                         Img2Paint ControlNet
                       </SelectItem>
+                      {userModels?.map(
+                        (model) =>
+                          model.training_status === "succeeded" && (
+                            <SelectItem
+                              key={model.id}
+                              value={`${process.env.NEXT_PUBLIC_REPLICATE_USER_NAME}/${model.model_id}:${model.version}`}
+                            >
+                              {model.model_name ?? ""}
+                            </SelectItem>
+                          )
+                      )}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -262,8 +305,13 @@ const Configurations = ({
                 <FormItem>
                   <FormLabel>Prompt</FormLabel>
                   <FormControl>
-                    <Textarea {...field} rows={3} />
+                    <Textarea
+                      {...field}
+                      rows={3}
+                      placeholder="Describe the image you want to generate..."
+                    />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -291,7 +339,7 @@ const Configurations = ({
                                     max={config.max}
                                     step={config.step}
                                     className="w-24"
-                                    onChange={(e: { target: { value: any } }) =>
+                                    onChange={(e) =>
                                       field.onChange(Number(e.target.value))
                                     }
                                   />
@@ -301,7 +349,7 @@ const Configurations = ({
                                   min={config.min}
                                   max={config.max}
                                   step={config.step}
-                                  onValueChange={(vals: any[]) =>
+                                  onValueChange={(vals) =>
                                     field.onChange(vals[0])
                                   }
                                   className="flex-1"
@@ -314,9 +362,14 @@ const Configurations = ({
                             </div>
                           ) : (
                             <FormControl>
-                              <Textarea {...field} rows={3} />
+                              <Textarea
+                                {...field}
+                                rows={3}
+                                defaultValue={config.default}
+                              />
                             </FormControl>
                           )}
+                          <FormMessage />
                         </FormItem>
                       )}
                     />
@@ -359,11 +412,12 @@ const Configurations = ({
                           <Input
                             {...field}
                             type="number"
-                            onChange={(e: { target: { value: any } }) =>
+                            onChange={(e) =>
                               field.onChange(Number(e.target.value))
                             }
                           />
                         </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -381,8 +435,13 @@ const Configurations = ({
                               <FormItem>
                                 <FormLabel>{config.label}</FormLabel>
                                 <FormControl>
-                                  <Textarea {...field} rows={3} />
+                                  <Textarea
+                                    {...field}
+                                    rows={3}
+                                    defaultValue={config.default}
+                                  />
                                 </FormControl>
+                                <FormMessage />
                               </FormItem>
                             )}
                           />
@@ -393,7 +452,9 @@ const Configurations = ({
               )}
             </div>
 
-            <Button type="submit">Generate</Button>
+            <Button type="submit" className="w-full">
+              Generate
+            </Button>
           </fieldset>
         </form>
       </Form>

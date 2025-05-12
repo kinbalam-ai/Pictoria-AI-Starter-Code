@@ -60,7 +60,7 @@ const GeneratedHanzi = ({ hanziData, character, onImageGenerated }: GeneratedHan
     context.fillText(
       character,
       canvas.width / 2,
-      180 + canvas.height / 2 + (20 * renderScale) // Slight vertical adjustment
+      200 + canvas.height / 2 + (20 * renderScale) // Slight vertical adjustment
     );
 
     // Create display-sized version
