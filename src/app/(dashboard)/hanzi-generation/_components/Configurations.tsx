@@ -144,7 +144,12 @@ interface ConfigurationsProps {
   hanziData?: Hanzi;
 }
 
-const Configurations = ({ userModels, model_id, hanziData, character }: ConfigurationsProps) => {
+const Configurations = ({
+  userModels,
+  model_id,
+  hanziData,
+  character,
+}: ConfigurationsProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -179,29 +184,26 @@ const Configurations = ({ userModels, model_id, hanziData, character }: Configur
   }, [selectedModel, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    console.log("Submitting values:", values);
     const modelConfig = MODEL_CONFIGS[values.model];
-    // const payload = {
-    //   ...values,
-    //   ...modelConfig.defaults,
-    //   ...Object.fromEntries(
-    //     Object.keys(modelConfig.fields).map(key => [
-    //       key,
-    //       form.getValues(key as any) ?? modelConfig.fields[key].default
-    //     ])
-    // };
     console.log("Submitting modelConfig:", modelConfig);
   }
 
   return (
     <TooltipProvider>
-    
-    <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-4"> {/* Changed to space-y-4 */}
-          
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="w-full space-y-4"
+        >
+          {" "}
+          {/* Changed to space-y-4 */}
           {/* Hanzi Details - Top Section */}
           {hanziData && (
             <fieldset className="rounded-lg border p-4 bg-background">
-              <legend className="-ml-1 px-1 text-sm font-medium">Hanzi Details</legend>
+              <legend className="-ml-1 px-1 text-sm font-medium">
+                Hanzi Details
+              </legend>
               <div className="flex items-center gap-4">
                 <div className="flex items-center justify-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                   <span className="text-4xl font-bold">{character}</span>
@@ -219,7 +221,9 @@ const Configurations = ({ userModels, model_id, hanziData, character }: Configur
                   </div> */}
                   <div>
                     <p className="text-xs text-muted-foreground">Definition</p>
-                    <p className="font-medium line-clamp-2">{hanziData.definition || 'No definition'}</p>
+                    <p className="font-medium line-clamp-2">
+                      {hanziData.definition || "No definition"}
+                    </p>
                   </div>
                 </div>
               </div>
