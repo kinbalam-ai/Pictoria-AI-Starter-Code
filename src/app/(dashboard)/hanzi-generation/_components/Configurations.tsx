@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Info, ChevronDown, ChevronUp } from "lucide-react";
 import {
@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Hanzi } from "../../hanzis/_components/types";
+import { useSetDisplayedCharacter } from "./useGenerateHanziStore";
 
 type ModelConfig = {
   fields: Record<
@@ -153,10 +154,20 @@ const Configurations = ({
   character,
 }: ConfigurationsProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showTraditional, setShowTraditional] = useState(() => {
+  const [displayCharacter, setDisplayCharacter] = useState(() => {
     // Default to showing traditional if the URL character matches traditional
-    return hanziData?.traditional_character === character;
+    const showTraditional = hanziData?.traditional_character === character;
+    return showTraditional && hanziData?.traditional_character
+      ? hanziData.traditional_character
+      : hanziData?.standard_character || character;
   });
+
+  const setDisplayedCharacter = useSetDisplayedCharacter();
+
+  // Sync to Zustand
+  useEffect(() => {
+    setDisplayedCharacter(displayCharacter);
+  }, [displayCharacter]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -174,17 +185,6 @@ const Configurations = ({
   });
 
   const selectedModel = form.watch("model");
-
-  // Determine which character to display
-  const displayCharacter =
-    showTraditional && hanziData?.traditional_character
-      ? hanziData.traditional_character
-      : hanziData?.standard_character || character;
-
-  // Only show toggle if there are actually different traditional/simplified versions
-  const showVariantToggle =
-    hanziData?.traditional_character &&
-    hanziData.traditional_character !== hanziData.standard_character;
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log("Submitting values:", values);
@@ -208,8 +208,16 @@ const Configurations = ({
                   hanziData.standard_character && (
                   <div className="absolute top-4 right-4 flex items-center gap-2">
                     <Switch
-                      checked={showTraditional}
-                      onCheckedChange={setShowTraditional}
+                      checked={
+                        displayCharacter === hanziData.traditional_character
+                      }
+                      onClick={() =>
+                        displayCharacter === hanziData.traditional_character
+                          ? setDisplayCharacter(hanziData.standard_character)
+                          : setDisplayCharacter(
+                              hanziData.traditional_character!
+                            )
+                      }
                       className="data-[state=checked]:bg-primary"
                     />
                     <span className="text-sm font-medium">
@@ -228,11 +236,7 @@ const Configurations = ({
 
               <div className="flex items-center gap-4 pt-2">
                 <div className="flex items-center justify-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 w-16 h-16">
-                  <span className="text-4xl font-bold">
-                    {showTraditional && hanziData.traditional_character
-                      ? hanziData.traditional_character
-                      : hanziData.standard_character || character}
-                  </span>
+                  <span className="text-4xl font-bold">{displayCharacter}</span>
                 </div>
 
                 <div className="grid gap-1 flex-1">

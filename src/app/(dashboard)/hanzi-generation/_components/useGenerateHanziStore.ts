@@ -22,6 +22,7 @@ interface HanziCharacter {
   traditional_character?: string;
   definition?: string;
   pinyin?: string;
+  
 }
 
 interface GenerateHanziState {
@@ -33,15 +34,15 @@ interface GenerateHanziState {
   // Character state
   hanziData: HanziCharacter | null;
   showTraditional: boolean;
-  currentCharacter: string;
   base64Canvas: string | null;
   
   // Actions
   generateHanzi: (values: GenerateHanziFormValues) => Promise<void>;
-  setHanziData: (data: HanziCharacter) => void;
-  toggleCharacterVariant: () => void;
   setBase64Canvas: (data: string) => void;
   reset: () => void;
+
+  displayedCharacter: string; 
+  setDisplayedCharacter: (char: string) => void; 
 }
 
 const initialState = {
@@ -54,8 +55,11 @@ const initialState = {
   base64Canvas: null,
 };
 
-const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
+const useGenerateHanziStore = create<GenerateHanziState>((set) => ({
   ...initialState,
+
+  displayedCharacter: "", // <-- Default empty string
+  setDisplayedCharacter: (char) => set({ displayedCharacter: char }), // <-- Simple setter
 
   // Generate AI images
   generateHanzi: async (values: GenerateHanziFormValues) => {
@@ -99,33 +103,9 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
     }
   },
 
-  // Set initial Hanzi data
-  setHanziData: (data: HanziCharacter) => {
-    const showTraditional = data.traditional_character === data.standard_character;
-    set({
-      hanziData: data,
-      currentCharacter: showTraditional && data.traditional_character 
-        ? data.traditional_character 
-        : data.standard_character,
-      showTraditional,
-    });
-  },
+  
 
-  // Toggle between traditional/simplified
-  toggleCharacterVariant: () => {
-    const { hanziData, showTraditional } = get();
-    if (!hanziData || !hanziData.traditional_character) return;
-    
-    const newVariant = !showTraditional;
-    set({
-      showTraditional: newVariant,
-      currentCharacter: newVariant 
-        ? hanziData.traditional_character 
-        : hanziData.standard_character,
-      // Clear generated images when changing character
-      images: [],
-    });
-  },
+  
 
   // Store the canvas image
   setBase64Canvas: (data: string) => {
@@ -138,9 +118,11 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
   },
 }));
 
-// Selectors for optimized re-renders
-export const useCurrentCharacter = () => 
-  useGenerateHanziStore(state => state.currentCharacter);
+export const useDisplayedCharacter = () => 
+  useGenerateHanziStore(state => state.displayedCharacter);
+
+export const useSetDisplayedCharacter = () =>
+  useGenerateHanziStore(state => state.setDisplayedCharacter);
 
 export const useShowTraditional = () => 
   useGenerateHanziStore(state => state.showTraditional);

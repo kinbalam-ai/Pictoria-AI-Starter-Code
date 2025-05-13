@@ -33,7 +33,7 @@ const HannziGeneration = async ({
     <section className="container mx-auto grid flex-1 gap-4 overflow-auto grid-cols-1 lg:grid-cols-3">
       <Configurations userModels={[]} hanziData={hanziData} character={hanzi} />
       <div className="relative flex h-fit flex-col items-center justify-center rounded-xl p-0 lg:p-4 lg:col-span-2">
-        <GeneratedHanzi hanziData={hanziData} character={hanzi} />
+        <GeneratedHanzi />
         <div className="flex-1" />
       </div>
     </section>
