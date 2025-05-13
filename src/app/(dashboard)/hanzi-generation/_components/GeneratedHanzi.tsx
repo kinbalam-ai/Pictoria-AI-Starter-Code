@@ -94,7 +94,7 @@ const GeneratedHanzi = ({ onImageGenerated }: GeneratedHanziProps) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       generateHanziImage();
-    }, 500); // Small delay to batch rapid changes
+    }, 300); // Small delay to batch rapid changes
     
     return () => clearTimeout(timer);
   }, [generateHanziImage]);

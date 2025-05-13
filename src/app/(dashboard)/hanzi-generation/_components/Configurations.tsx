@@ -193,80 +193,62 @@ const Configurations = ({
   }
 
   return (
-    <TooltipProvider>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="w-full space-y-4"
-        >
-          {/* Hanzi Details - Top Section */}
-          {hanziData && (
-            <fieldset className="rounded-lg border p-4 bg-background relative">
-              {/* Variant toggle in top-right corner */}
-              {hanziData.traditional_character &&
-                hanziData.traditional_character !==
-                  hanziData.standard_character && (
-                  <div className="absolute top-4 right-4 flex items-center gap-2">
-                    <Switch
-                      checked={
-                        displayCharacter === hanziData.traditional_character
-                      }
-                      onClick={() =>
-                        displayCharacter === hanziData.traditional_character
-                          ? setDisplayCharacter(hanziData.standard_character)
-                          : setDisplayCharacter(
-                              hanziData.traditional_character!
-                            )
-                      }
-                      className="data-[state=checked]:bg-primary"
-                    />
-                    <span className="text-sm font-medium">
-                      {hanziData.standard_character}
-                    </span>
-                    {"/"}
-                    <span className="text-sm font-medium">
-                      {hanziData.traditional_character}
-                    </span>
-                  </div>
-                )}
-
-              <legend className="-ml-1 px-1 text-sm font-medium">
-                Hanzi Details
-              </legend>
-
-              <div className="flex items-center gap-4 pt-2">
-                <div className="flex items-center justify-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 w-16 h-16">
-                  <span className="text-4xl font-bold">{displayCharacter}</span>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-4">
+        {/* Your EXACT Hanzi Details Section */}
+        {hanziData && (
+          <fieldset className="rounded-lg border p-4 bg-background relative">
+            {hanziData.traditional_character &&
+              hanziData.traditional_character !==
+                hanziData.standard_character && (
+                <div className="absolute top-4 right-4 flex items-center gap-2">
+                  <Switch
+                    checked={
+                      displayCharacter === hanziData.traditional_character
+                    }
+                    onClick={() =>
+                      displayCharacter === hanziData.traditional_character
+                        ? setDisplayCharacter(hanziData.standard_character)
+                        : setDisplayCharacter(hanziData.traditional_character!)
+                    }
+                    className="data-[state=checked]:bg-primary"
+                  />
+                  <span className="text-sm font-medium">
+                    {hanziData.standard_character}
+                  </span>
+                  {"/"}
+                  <span className="text-sm font-medium">
+                    {hanziData.traditional_character}
+                  </span>
                 </div>
+              )}
 
-                <div className="grid gap-1 flex-1">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Definition</p>
-                    <p className="font-medium">
-                      {hanziData.definition || "No definition available"}
-                    </p>
-                  </div>
-                  {/* <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-muted-foreground">Pinyin</p>
-            <p className="font-medium">{hanziData.pinyin || 'N/A'}</p>
-          </div>
-          {hanziData.stroke_count && (
-            <div>
-              <p className="text-sm text-muted-foreground">Strokes</p>
-              <p className="font-medium">{hanziData.stroke_count}</p>
-            </div>
-          )}
-        </div> */}
+            <legend className="-ml-1 px-1 text-sm font-medium">
+              Hanzi Details
+            </legend>
+
+            <div className="flex items-center gap-4 pt-2">
+              <div className="flex items-center justify-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 w-16 h-16">
+                <span className="text-4xl font-bold">{displayCharacter}</span>
+              </div>
+
+              <div className="grid gap-1 flex-1">
+                <div>
+                  <p className="text-sm text-muted-foreground">Definition</p>
+                  <p className="font-medium">
+                    {hanziData.definition || "No definition available"}
+                  </p>
                 </div>
               </div>
-            </fieldset>
-          )}
+            </div>
+          </fieldset>
+        )}
 
-          {/* Rest of the form remains unchanged */}
-          <fieldset className="grid gap-6 rounded-lg border p-4 bg-background">
-            <legend className="-ml-1 px-1 text-sm font-medium">Settings</legend>
+        {/* Optimized Form Section */}
+        <fieldset className="rounded-lg border p-4 bg-background space-y-4">
+          <legend className="-ml-1 px-1 text-sm font-medium">Settings</legend>
 
+          <div className="grid gap-4">
             <FormField
               control={form.control}
               name="model"
@@ -297,7 +279,6 @@ const Configurations = ({
                       )}
                     </SelectContent>
                   </Select>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -315,7 +296,6 @@ const Configurations = ({
                       placeholder="Describe the image you want to generate..."
                     />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -356,12 +336,7 @@ const Configurations = ({
                                   onValueChange={(vals) =>
                                     field.onChange(vals[0])
                                   }
-                                  className="flex-1"
                                 />
-                              </div>
-                              <div className="flex justify-between text-xs text-muted-foreground px-1">
-                                <span>{config.min}</span>
-                                <span>{config.max}</span>
                               </div>
                             </div>
                           ) : (
@@ -373,7 +348,6 @@ const Configurations = ({
                               />
                             </FormControl>
                           )}
-                          <FormMessage />
                         </FormItem>
                       )}
                     />
@@ -382,27 +356,25 @@ const Configurations = ({
             )}
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                >
-                  {showAdvanced ? (
-                    <>
-                      <ChevronUp className="mr-2 h-4 w-4" />
-                      Hide Advanced
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="mr-2 h-4 w-4" />
-                      Show Advanced
-                    </>
-                  )}
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground w-full justify-start"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+              >
+                {showAdvanced ? (
+                  <>
+                    <ChevronUp className="mr-2 h-4 w-4" />
+                    Hide Advanced
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="mr-2 h-4 w-4" />
+                    Show Advanced
+                  </>
+                )}
+              </Button>
 
               {showAdvanced && (
                 <div className="space-y-4 border-t pt-4">
@@ -421,7 +393,6 @@ const Configurations = ({
                             }
                           />
                         </FormControl>
-                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -442,10 +413,9 @@ const Configurations = ({
                                   <Textarea
                                     {...field}
                                     rows={3}
-                                    defaultValue={config.default}
+                                    // Remove defaultValue since field provides value
                                   />
                                 </FormControl>
-                                <FormMessage />
                               </FormItem>
                             )}
                           />
@@ -459,10 +429,10 @@ const Configurations = ({
             <Button type="submit" className="w-full">
               Generate
             </Button>
-          </fieldset>
-        </form>
-      </Form>
-    </TooltipProvider>
+          </div>
+        </fieldset>
+      </form>
+    </Form>
   );
 };
 

@@ -13,7 +13,7 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>  
+      <SidebarInset>
         <div className="w-fit flex items-center gap-2 px-4 my-4">
           <SidebarTrigger className="-ml-1" />
         </div>
