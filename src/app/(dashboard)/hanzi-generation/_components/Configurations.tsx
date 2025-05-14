@@ -34,7 +34,13 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Hanzi } from "../../hanzis/_components/types";
-import { useSetDisplayedCharacter } from "./useGenerateHanziStore";
+import {
+  useCanvasImage,
+  useSelectedPronunciations,
+  useSetCanvasImage,
+  useSetDisplayedCharacter,
+  useSetSelectedPronunciations,
+} from "./useGenerateHanziStore";
 
 type ModelConfig = {
   fields: Record<
@@ -161,7 +167,33 @@ const Configurations = ({
       ? hanziData.traditional_character
       : hanziData?.standard_character || character;
   });
+  const [pronunciationOrder, setPronunciationOrder] = useState<string[]>([]);
+  const selectedPronunciations = useSelectedPronunciations();
+  const setSelectedPronunciations = useSetSelectedPronunciations();
 
+  // Initialize pronunciation order
+  useEffect(() => {
+    if (hanziData?.pinyin) {
+      const order = hanziData.pinyin.map((p) => p.pronunciation);
+      setPronunciationOrder(order);
+      // Initialize selections as empty but in correct order
+      setSelectedPronunciations([]);
+    }
+  }, [hanziData]);
+  const togglePronunciation = (pronunciation: string) => {
+    const newSelected = selectedPronunciations.includes(pronunciation)
+      ? selectedPronunciations.filter((p) => p !== pronunciation)
+      : [...selectedPronunciations, pronunciation];
+
+    // Sort the selected pronunciations according to the original order
+    const orderedSelected = pronunciationOrder.filter((p) =>
+      newSelected.includes(p)
+    );
+
+    setSelectedPronunciations(orderedSelected);
+  };
+
+  const canvasImage = useCanvasImage();
   const setDisplayedCharacter = useSetDisplayedCharacter();
 
   // Sync to Zustand
@@ -187,7 +219,8 @@ const Configurations = ({
   const selectedModel = form.watch("model");
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log("Submitting values:", values);
+    // console.log("canvasImage: ", canvasImage)
+    console.log("Submitting values:", { ...values, canvasImage });
     const modelConfig = MODEL_CONFIGS[values.model];
     console.log("Submitting modelConfig:", modelConfig);
   }
@@ -197,47 +230,102 @@ const Configurations = ({
       <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-4">
         {/* Your EXACT Hanzi Details Section */}
         {hanziData && (
-          <fieldset className="rounded-lg border p-4 bg-background relative">
-            {hanziData.traditional_character &&
-              hanziData.traditional_character !==
-                hanziData.standard_character && (
-                <div className="absolute top-4 right-4 flex items-center gap-2">
-                  <Switch
-                    checked={
-                      displayCharacter === hanziData.traditional_character
-                    }
-                    onClick={() =>
-                      displayCharacter === hanziData.traditional_character
-                        ? setDisplayCharacter(hanziData.standard_character)
-                        : setDisplayCharacter(hanziData.traditional_character!)
-                    }
-                    className="data-[state=checked]:bg-primary"
-                  />
-                  <span className="text-sm font-medium">
-                    {hanziData.standard_character}
-                  </span>
-                  {"/"}
-                  <span className="text-sm font-medium">
-                    {hanziData.traditional_character}
-                  </span>
-                </div>
-              )}
+          <fieldset className="rounded-lg border p-3 bg-background">
+            {/* Responsive header row */}
+            <div className="flex justify-between items-start gap-4 mb-2">
+              <legend className="text-sm font-medium px-1">
+                Hanzi Details
+              </legend>
 
-            <legend className="-ml-1 px-1 text-sm font-medium">
-              Hanzi Details
-            </legend>
+              {/* Switch - now part of the flex flow */}
+              {hanziData.traditional_character &&
+                hanziData.traditional_character !==
+                  hanziData.standard_character && (
+                  <div className=" top-4 right-4 flex items-center gap-2">
+                    <Switch
+                      checked={
+                        displayCharacter === hanziData.traditional_character
+                      }
+                      onClick={() =>
+                        displayCharacter === hanziData.traditional_character
+                          ? setDisplayCharacter(hanziData.standard_character)
+                          : setDisplayCharacter(
+                              hanziData.traditional_character!
+                            )
+                      }
+                      className="data-[state=checked]:bg-primary"
+                    />
+                    <span className="text-sm font-medium">
+                      {hanziData.standard_character}
+                    </span>
+                    {"/"}
+                    <span className="text-sm font-medium">
+                      {hanziData.traditional_character}
+                    </span>
+                  </div>
+                )}
+            </div>
 
-            <div className="flex items-center gap-4 pt-2">
-              <div className="flex items-center justify-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 w-16 h-16">
-                <span className="text-4xl font-bold">{displayCharacter}</span>
+            {/* Content area with responsive layout */}
+            <div className="flex flex-col xs:flex-row gap-3">
+              {/* Character display - fixed size */}
+              <div
+                className="w-12 h-12 flex items-center justify-center 
+                      bg-white dark:bg-gray-800 border rounded-lg shrink-0"
+              >
+                <span className="text-3xl font-bold">{displayCharacter}</span>
               </div>
 
-              <div className="grid gap-1 flex-1">
-                <div>
-                  <p className="text-sm text-muted-foreground">Definition</p>
-                  <p className="font-medium">
+              {/* Details section */}
+              <div className="grid gap-1.5 flex-1 min-w-0">
+                {/* Definition */}
+                <div className="flex items-baseline gap-2">
+                  <p className="text-xs text-muted-foreground shrink-0">
+                    Definition:
+                  </p>
+                  <p className="text-sm font-medium truncate">
                     {hanziData.definition || "No definition available"}
                   </p>
+                </div>
+
+                <div className="flex items-baseline gap-2">
+                  <p className="text-xs text-muted-foreground shrink-0">
+                    Pinyin:
+                  </p>
+                  {/* Pinyin - Inline with definition when space allows */}
+                  {hanziData.pinyin?.length > 0 && (
+                    <div>
+                      <div className="flex flex-wrap gap-1">
+                        {hanziData.pinyin?.length > 0 && (
+                          <div>
+                            <div className="flex flex-wrap gap-2">
+                              {hanziData?.pinyin?.map((pinyinObj) => {
+                                const isSelected =
+                                  selectedPronunciations.includes(
+                                    pinyinObj.pronunciation
+                                  );
+                                return (
+                                  <Button
+                                    key={pinyinObj.pronunciation}
+                                    type="button"
+                                    variant={isSelected ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() =>
+                                      togglePronunciation(
+                                        pinyinObj.pronunciation
+                                      )
+                                    }
+                                  >
+                                    {pinyinObj.pronunciation}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+// /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import Image from "next/image";
@@ -10,7 +11,11 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
-import useGenerateHanziStore from "./useGenerateHanziStore";
+import useGenerateHanziStore, {
+  useDisplayedCharacter,
+  useSelectedPronunciations,
+  useSetCanvasImage,
+} from "./useGenerateHanziStore";
 import { Loader2 } from "lucide-react";
 
 interface GeneratedHanziProps {
@@ -18,21 +23,27 @@ interface GeneratedHanziProps {
 }
 
 const GeneratedHanzi = ({ onImageGenerated }: GeneratedHanziProps) => {
-  const { images, loading, displayedCharacter } = useGenerateHanziStore(); // Get the string directly from Zustand
+  const { images, loading } = useGenerateHanziStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [base64Image, setBase64Image] = useState<string | null>(null);
-  const [isGeneratingCanvas, setIsGeneratingCanvas] = useState(false); // New loading state
+  const [isGeneratingCanvas, setIsGeneratingCanvas] = useState(false);
+
+  const displayedCharacter = useDisplayedCharacter();
+  const setCanvasImage = useSetCanvasImage();
+  const selectedPronunciations = useSelectedPronunciations();
 
   const generateHanziImage = useCallback(async () => {
-    if (!canvasRef.current || !displayedCharacter) return; // Use displayedCharacter instead of character prop
+    if (!canvasRef.current || !displayedCharacter) return;
 
-    setIsGeneratingCanvas(true); // Freeze UI
-    await new Promise((resolve) => setTimeout(resolve, 0)); // Yield to browser
+    setIsGeneratingCanvas(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
     try {
       const canvas = canvasRef.current;
       const displaySize = 1024;
       const renderScale = 4;
-      const 字体大小 = 800;
+      const characterSize = 800;
+      const pronunciationSize = 60 * renderScale; // Size for pronunciation text
 
       canvas.width = displaySize * renderScale;
       canvas.height = displaySize * renderScale;
@@ -40,6 +51,7 @@ const GeneratedHanzi = ({ onImageGenerated }: GeneratedHanziProps) => {
       const context = canvas.getContext("2d");
       if (!context) return;
 
+      // Draw white background with rounded corners
       context.imageSmoothingEnabled = true;
       context.textRendering = "optimizeLegibility";
       context.fillStyle = "#ffffff";
@@ -48,19 +60,34 @@ const GeneratedHanzi = ({ onImageGenerated }: GeneratedHanziProps) => {
       context.roundRect(0, 0, canvas.width, canvas.height, radius);
       context.fill();
 
+      // Draw main character
       context.fillStyle = "#000000";
       context.font = `${
-        字体大小 * renderScale
+        characterSize * renderScale
       }px "Noto Sans CJK SC", sans-serif`;
       context.textAlign = "center";
       context.textBaseline = "middle";
-
       context.fillText(
-        displayedCharacter, // Use the Zustand string here
+        displayedCharacter,
         canvas.width / 2,
-        200 + canvas.height / 2 + 20 * renderScale
+        700 + canvas.height / 2 - pronunciationSize * 1.5 // Adjust position higher
       );
 
+      // GeneratedHanzi.tsx - in your generateHanziImage function
+      if (selectedPronunciations.length > 0) {
+        context.font = `bold ${60 + pronunciationSize}px "Noto Sans CJK SC", sans-serif`;
+        context.fillStyle = "#000000";
+
+        // This will use the properly ordered array from the store
+        const pronunciationsText = selectedPronunciations.join("  ");
+        context.fillText(
+          pronunciationsText,
+          canvas.width / 2,
+          480 + canvas.height / 2 + characterSize * renderScale * 0.4
+        );
+      }
+
+      // Create display-sized version
       const displayCanvas = document.createElement("canvas");
       displayCanvas.width = displaySize;
       displayCanvas.height = displaySize;
@@ -84,18 +111,24 @@ const GeneratedHanzi = ({ onImageGenerated }: GeneratedHanziProps) => {
         setBase64Image(dataUrl);
         onImageGenerated?.(dataUrl);
       }
-    } catch (error) {
     } finally {
-      setIsGeneratingCanvas(false); // Unfreeze
+      setIsGeneratingCanvas(false);
     }
-  }, [displayedCharacter, onImageGenerated]); // Update dependency
+  }, [displayedCharacter, onImageGenerated, selectedPronunciations]); // Add selectedPronunciations to dependencies
+  // Sync to Zustand store whenever base64Image changes
+  useEffect(() => {
+    if (base64Image) {
+      // console.log("base64Image: ", base64Image)
+      setCanvasImage(base64Image);
+    }
+  }, [base64Image, setCanvasImage]);
 
   // Debounce rapid character changes
   useEffect(() => {
     const timer = setTimeout(() => {
       generateHanziImage();
     }, 300); // Small delay to batch rapid changes
-    
+
     return () => clearTimeout(timer);
   }, [generateHanziImage]);
 
@@ -111,19 +144,19 @@ const GeneratedHanzi = ({ onImageGenerated }: GeneratedHanziProps) => {
           ) : displayedCharacter ? (
             <div className="relative w-full h-full">
               <canvas ref={canvasRef} className="hidden" />
-              {base64Image && !isGeneratingCanvas && ( // Only show when stable
-                <div className="absolute inset-0 rounded-lg overflow-hidden">
-                  <Image
-                    src={base64Image}
-                    alt={`Hanzi character ${displayedCharacter}`}
-                    fill
-                    className="object-contain"
-                    priority
-                    quality={100}
-                    
-                  />
-                </div>
-              )}
+              {base64Image &&
+                !isGeneratingCanvas && ( // Only show when stable
+                  <div className="absolute inset-0 rounded-lg overflow-hidden">
+                    <Image
+                      src={base64Image}
+                      alt={`Hanzi character ${displayedCharacter}`}
+                      fill
+                      className="object-contain"
+                      priority
+                      quality={100}
+                    />
+                  </div>
+                )}
             </div>
           ) : (
             <span className="text-2xl">No Hanzi selected</span>

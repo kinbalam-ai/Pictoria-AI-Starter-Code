@@ -17,12 +17,16 @@ interface GenerateHanziFormValues {
   output_quality: number;
 }
 
+interface PinyinObject {
+  pronunciation: string;
+  // Add other pinyin properties if needed
+}
+
 interface HanziCharacter {
   standard_character: string;
   traditional_character?: string;
   definition?: string;
-  pinyin?: string;
-  
+  pinyin?: PinyinObject[];
 }
 
 interface GenerateHanziState {
@@ -35,14 +39,22 @@ interface GenerateHanziState {
   hanziData: HanziCharacter | null;
   showTraditional: boolean;
   base64Canvas: string | null;
+  selectedPronunciations: string[]; // New state for selected pronunciations
   
   // Actions
   generateHanzi: (values: GenerateHanziFormValues) => Promise<void>;
   setBase64Canvas: (data: string) => void;
   reset: () => void;
+  togglePronunciation: (pronunciation: string) => void; // New action
+  
+  setSelectedPronunciations: (pronunciations: string[]) => void; // New action;
+  clearSelectedPronunciations: () => void; // New action
 
-  displayedCharacter: string; 
-  setDisplayedCharacter: (char: string) => void; 
+  displayedCharacter: string;
+  setDisplayedCharacter: (char: string) => void;
+
+  canvasImage: string | null;
+  setCanvasImage: (image: string | null) => void;
 }
 
 const initialState = {
@@ -51,15 +63,32 @@ const initialState = {
   error: null,
   hanziData: null,
   showTraditional: false,
-  currentCharacter: '',
   base64Canvas: null,
+  selectedPronunciations: [], // Added to initial state
 };
 
-const useGenerateHanziStore = create<GenerateHanziState>((set) => ({
+const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
   ...initialState,
 
-  displayedCharacter: "", // <-- Default empty string
-  setDisplayedCharacter: (char) => set({ displayedCharacter: char }), // <-- Simple setter
+  displayedCharacter: "",
+  setDisplayedCharacter: (char) => set({ displayedCharacter: char }),
+
+  canvasImage: null,
+  setCanvasImage: (image) => set({ canvasImage: image }),
+
+  setSelectedPronunciations: (pronunciationsArray) => set({ selectedPronunciations: pronunciationsArray}),
+
+  // New pronunciation actions
+  togglePronunciation: (pronunciation) => {
+    const current = get().selectedPronunciations;
+    set({
+      selectedPronunciations: current.includes(pronunciation)
+        ? current.filter(p => p !== pronunciation)
+        : [...current, pronunciation]
+    });
+  },
+
+  clearSelectedPronunciations: () => set({ selectedPronunciations: [] }),
 
   // Generate AI images
   generateHanzi: async (values: GenerateHanziFormValues) => {
@@ -103,10 +132,6 @@ const useGenerateHanziStore = create<GenerateHanziState>((set) => ({
     }
   },
 
-  
-
-  
-
   // Store the canvas image
   setBase64Canvas: (data: string) => {
     set({ base64Canvas: data });
@@ -118,11 +143,30 @@ const useGenerateHanziStore = create<GenerateHanziState>((set) => ({
   },
 }));
 
+// Selector exports
 export const useDisplayedCharacter = () => 
   useGenerateHanziStore(state => state.displayedCharacter);
 
 export const useSetDisplayedCharacter = () =>
   useGenerateHanziStore(state => state.setDisplayedCharacter);
+
+export const useCanvasImage = () =>
+  useGenerateHanziStore(state => state.canvasImage);
+
+export const useSetCanvasImage = () =>
+  useGenerateHanziStore(state => state.setCanvasImage);
+
+export const useSelectedPronunciations = () =>
+  useGenerateHanziStore(state => state.selectedPronunciations);
+
+// export const useTogglePronunciation = () =>
+//   useGenerateHanziStore(state => state.togglePronunciation);
+
+export const useSetSelectedPronunciations = () =>
+  useGenerateHanziStore(state => state.setSelectedPronunciations);
+
+export const useClearSelectedPronunciations = () =>
+  useGenerateHanziStore(state => state.clearSelectedPronunciations);
 
 export const useShowTraditional = () => 
   useGenerateHanziStore(state => state.showTraditional);
