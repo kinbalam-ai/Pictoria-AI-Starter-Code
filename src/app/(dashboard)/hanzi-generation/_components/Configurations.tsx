@@ -36,11 +36,13 @@ import { Label } from "@/components/ui/label";
 import { Hanzi } from "../../hanzis/_components/types";
 import {
   useCanvasImage,
+  useGenerateHanzi,
   useSelectedPronunciations,
   useSetCanvasImage,
   useSetDisplayedCharacter,
   useSetSelectedPronunciations,
 } from "./useGenerateHanziStore";
+import { GenerationValues } from "./types";
 
 type ModelConfig = {
   fields: Record<
@@ -218,11 +220,28 @@ const Configurations = ({
 
   const selectedModel = form.watch("model");
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  const generateHanzi = useGenerateHanzi();
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     // console.log("canvasImage: ", canvasImage)
     console.log("Submitting values:", { ...values, canvasImage });
     const modelConfig = MODEL_CONFIGS[values.model];
     console.log("Submitting modelConfig:", modelConfig);
+
+    try {
+      const payload: GenerationValues = {
+        ...values,
+        canvasImage,
+        selectedPronunciations,
+        character: displayCharacter,
+        // Add any other needed values
+      };
+
+      await generateHanzi(payload);
+    } catch (error) {
+      console.error("Error generating image:", error);
+      // Handle error
+    }
   }
 
   return (

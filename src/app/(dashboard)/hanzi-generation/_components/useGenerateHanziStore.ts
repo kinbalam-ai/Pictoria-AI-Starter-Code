@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // useGenerateHanziStore.ts
 import { create } from "zustand";
-import { toast } from "sonner";
+// import { toast } from "sonner";
 import {
-  generateHanziImage as generateHanziImageAction,
-  storeHanziImages,
+  generateControlNetScribble,
+  generateImg2PaintControlNet,
 } from "@/app/actions/hanzi-image-actions";
 
 interface GenerateHanziFormValues {
@@ -32,6 +33,7 @@ interface HanziCharacter {
 interface GenerateHanziState {
   // Generation state
   loading: boolean;
+  isLoading: boolean;
   images: Array<{ url: string } & GenerateHanziFormValues>;
   error: string | null;
   
@@ -42,9 +44,10 @@ interface GenerateHanziState {
   selectedPronunciations: string[]; // New state for selected pronunciations
   
   // Actions
-  generateHanzi: (values: GenerateHanziFormValues) => Promise<void>;
+  generateHanzi: (values: any) => Promise<void>;
   setBase64Canvas: (data: string) => void;
   reset: () => void;
+  
   togglePronunciation: (pronunciation: string) => void; // New action
   
   setSelectedPronunciations: (pronunciations: string[]) => void; // New action;
@@ -59,6 +62,7 @@ interface GenerateHanziState {
 
 const initialState = {
   loading: false,
+  isLoading: false,
   images: [],
   error: null,
   hanziData: null,
@@ -91,44 +95,25 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
   clearSelectedPronunciations: () => set({ selectedPronunciations: [] }),
 
   // Generate AI images
-  generateHanzi: async (values: GenerateHanziFormValues) => {
-    set({ loading: true, error: null });
-    const toastId = toast.loading("Generating Hanzi image...");
-
+  generateHanzi: async (values) => {
+    set({ isLoading: true, error: null });
+    
     try {
-      const {
-        data: output,
-        error,
-        success,
-      } = await generateHanziImageAction(values);
-
-      if (!success) {
-        set({ error: error, loading: false });
-        toast.error(error, { id: toastId });
-        return;
+      switch(values.model) {
+        case "jagilley/controlnet-scribble":
+          await generateControlNetScribble(values);
+          break;
+        case "qr2ai/img2paint_controlnet":
+          await generateImg2PaintControlNet(values);
+          break;
+        default:
+          throw new Error(`Unsupported model: ${values.model}`);
       }
-
-      const dataWithInputs = Array.isArray(output)
-        ? output.map((url: string) => ({
-            url,
-            ...values,
-          }))
-        : [];
-
-      set({ images: dataWithInputs, loading: false });
-      toast.success("Hanzi generated successfully", { id: toastId });
-
-      await storeHanziImages(dataWithInputs);
-      toast.success("Hanzi images stored successfully");
-    } catch (error) {
-      console.error(error);
-      set({
-        error: "Failed to generate Hanzi. Please try again.",
-        loading: false,
-      });
-      toast.error("Failed to generate Hanzi. Please try again.", {
-        id: toastId,
-      });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : 'Generation failed' });
+      console.error('Generation error:', err);
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -158,6 +143,9 @@ export const useSetCanvasImage = () =>
 
 export const useSelectedPronunciations = () =>
   useGenerateHanziStore(state => state.selectedPronunciations);
+
+export const useGenerateHanzi = () =>
+  useGenerateHanziStore(state => state.generateHanzi);
 
 // export const useTogglePronunciation = () =>
 //   useGenerateHanziStore(state => state.togglePronunciation);
