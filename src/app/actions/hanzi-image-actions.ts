@@ -15,8 +15,10 @@ export type GenerationResponse = {
 };
 
 const MODEL_VERSIONS = {
-  CONTROLNET_SCRIBBLE: "jagilley/controlnet-scribble:435061a1b5a4c1e26740464bf786efdfa9cb3a3ac488595a2de23e143fdb0117",
-  IMG2PAINT_CONTROLNET: "qr2ai/img2paint_controlnet:592691cf624bb863fe5a01673badff425607ba56dbc499a74bbfdacd3ec0da55"
+  CONTROLNET_SCRIBBLE:
+    "jagilley/controlnet-scribble:435061a1b5a4c1e26740464bf786efdfa9cb3a3ac488595a2de23e143fdb0117",
+  IMG2PAINT_CONTROLNET:
+    "qr2ai/img2paint_controlnet:592691cf624bb863fe5a01673badff425607ba56dbc499a74bbfdacd3ec0da55",
 };
 
 type HanziGenerationInput = {
@@ -78,7 +80,7 @@ export async function generateControlNetScribble(
       data: prediction.output.slice(1),
     };
   } catch (error: any) {
-    console.log("Generation ERROR: ", error)
+    console.log("Generation ERROR: ", error);
     return {
       error: error.message || "Failed to generate image",
       success: false,
@@ -98,42 +100,66 @@ export async function generateImg2PaintControlNet(
     };
   }
 
-  console.log("Calling model from actions2...");
-
-  // try {
-  //   const output = await replicate.run(
-  //     MODEL_VERSIONS.IMG2PAINT_CONTROLNET as `${string}/${string}`,
-  //     {
-  //       input: {
-  //         image: input.canvasImage,
-  //         prompt: input.prompt,
-  //         seed: input.seed,
-  //         condition_scale: input.condition_scale || 0.5,
-  //         num_inference_steps: input.num_inference_steps || 50,
-  //         negative_prompt: input.negative_prompt || "low quality, bad quality",
-  //       },
-  //     }
-  //   );
-
-  //   revalidateTag("hanzi-generations");
-  //   return {
-  //     error: null,
-  //     success: true,
-  //     data: output,
-  //   };
-  // } catch (error: any) {
-  //   console.error("Generation ERROR:", error);
-  //   return {
-  //     error: error.message || "Failed to generate image",
-  //     success: false,
-  //     data: null,
-  //   };
-  // }
+  // Validate the input image
+  if (!input.canvasImage) {
+    const errorMsg =
+      "Missing canvas image - please generate the character first";
+    console.error(errorMsg);
     return {
-      error:  "Failed to generate image",
+      error: errorMsg,
       success: false,
       data: [],
     };
+  }
+
+  console.log("Calling img2paint model from actions...");
+
+  try {
+    const prediction = await replicate.predictions.create({
+      version: MODEL_VERSIONS.IMG2PAINT_CONTROLNET,
+      input: {
+        image: input.canvasImage,
+        prompt: input.prompt,
+        seed: input.seed,
+        condition_scale: input.condition_scale || 0.5,
+        num_inference_steps: input.num_inference_steps || 40,
+        negative_prompt: input.negative_prompt || "low quality, bad quality",
+      },
+      wait: true, // Wait for completion
+    });
+
+    console.log("Img2Paint Prediction status:", prediction.status);
+    console.log("Img2Paint Prediction output:", prediction.output);
+
+    // if (prediction.status !== "succeeded" || !prediction.output) {
+    //   const errorMsg = "Img2Paint generation failed";
+    //   console.error("Img2Paint generation failed:", errorMsg);
+    //   return {
+    //     error: errorMsg,
+    //     success: false,
+    //     data: [],
+    //   };
+    // }
+
+    // Process the output (handle both array and single output cases)
+    // const outputData = Array.isArray(prediction.output)
+    //   ? prediction.output
+    //   : [prediction.output];
+
+    revalidateTag("hanzi-generations");
+    return {
+      error: null,
+      success: true,
+      data: [prediction.output],
+    };
+  } catch (error: any) {
+    console.error("Img2Paint Generation ERROR:", error);
+    return {
+      error: error.message || "Failed to generate image",
+      success: false,
+      data: [],
+    };
+  }
 }
 
 export async function storeHanziImages(
