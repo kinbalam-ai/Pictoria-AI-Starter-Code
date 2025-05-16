@@ -8,10 +8,10 @@ import Replicate from "replicate";
 import { revalidateTag } from "next/cache";
 import { GenerationValues } from "../(dashboard)/hanzi-generation/_components/types";
 
-type GenerationResponse = {
+export type GenerationResponse = {
   error: string | null;
   success: boolean;
-  data: any;
+  data: any[];
 };
 
 const MODEL_VERSIONS = {
@@ -47,14 +47,15 @@ export async function generateControlNetScribble(
     return {
       error: "Missing REPLICATE_API_TOKEN",
       success: false,
-      data: null,
+      data: [],
     };
   }
 
   console.log("Calling model from actions...");
 
   try {
-    const output = await replicate.run(MODEL_VERSIONS.CONTROLNET_SCRIBBLE as `${string}/${string}`, {
+    const prediction = await replicate.predictions.create({
+      version: MODEL_VERSIONS.CONTROLNET_SCRIBBLE,
       input: {
         image: input.canvasImage,
         prompt: input.prompt,
@@ -64,20 +65,24 @@ export async function generateControlNetScribble(
         a_prompt: input.a_prompt || "best quality, extremely detailed",
         n_prompt: input.n_prompt || "longbody, lowres, bad anatomy, bad hands",
       },
+      wait: true, // Wait for completion
     });
+
+    console.log("Prediction status:", prediction.status);
+    console.log("Prediction output:", prediction.output);
 
     revalidateTag("hanzi-generations");
     return {
       error: null,
       success: true,
-      data: output,
+      data: prediction.output.slice(1),
     };
   } catch (error: any) {
     console.log("Generation ERROR: ", error)
     return {
       error: error.message || "Failed to generate image",
       success: false,
-      data: null,
+      data: [],
     };
   }
 }
@@ -89,41 +94,46 @@ export async function generateImg2PaintControlNet(
     return {
       error: "Missing REPLICATE_API_TOKEN",
       success: false,
-      data: null,
+      data: [],
     };
   }
 
   console.log("Calling model from actions2...");
 
-  try {
-    const output = await replicate.run(
-      MODEL_VERSIONS.IMG2PAINT_CONTROLNET as `${string}/${string}`,
-      {
-        input: {
-          image: input.canvasImage,
-          prompt: input.prompt,
-          seed: input.seed,
-          condition_scale: input.condition_scale || 0.5,
-          num_inference_steps: input.num_inference_steps || 50,
-          negative_prompt: input.negative_prompt || "low quality, bad quality",
-        },
-      }
-    );
+  // try {
+  //   const output = await replicate.run(
+  //     MODEL_VERSIONS.IMG2PAINT_CONTROLNET as `${string}/${string}`,
+  //     {
+  //       input: {
+  //         image: input.canvasImage,
+  //         prompt: input.prompt,
+  //         seed: input.seed,
+  //         condition_scale: input.condition_scale || 0.5,
+  //         num_inference_steps: input.num_inference_steps || 50,
+  //         negative_prompt: input.negative_prompt || "low quality, bad quality",
+  //       },
+  //     }
+  //   );
 
-    revalidateTag("hanzi-generations");
+  //   revalidateTag("hanzi-generations");
+  //   return {
+  //     error: null,
+  //     success: true,
+  //     data: output,
+  //   };
+  // } catch (error: any) {
+  //   console.error("Generation ERROR:", error);
+  //   return {
+  //     error: error.message || "Failed to generate image",
+  //     success: false,
+  //     data: null,
+  //   };
+  // }
     return {
-      error: null,
-      success: true,
-      data: output,
-    };
-  } catch (error: any) {
-    console.error("Generation ERROR:", error);
-    return {
-      error: error.message || "Failed to generate image",
+      error:  "Failed to generate image",
       success: false,
-      data: null,
+      data: [],
     };
-  }
 }
 
 export async function storeHanziImages(

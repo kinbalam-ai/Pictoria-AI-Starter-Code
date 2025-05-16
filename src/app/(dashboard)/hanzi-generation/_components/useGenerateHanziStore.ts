@@ -5,7 +5,9 @@ import { create } from "zustand";
 import {
   generateControlNetScribble,
   generateImg2PaintControlNet,
+  GenerationResponse,
 } from "@/app/actions/hanzi-image-actions";
+import { toast } from "sonner";
 
 interface GenerateHanziFormValues {
   model: string;
@@ -36,20 +38,20 @@ interface GenerateHanziState {
   isLoading: boolean;
   images: Array<{ url: string } & GenerateHanziFormValues>;
   error: string | null;
-  
+
   // Character state
   hanziData: HanziCharacter | null;
   showTraditional: boolean;
   base64Canvas: string | null;
   selectedPronunciations: string[]; // New state for selected pronunciations
-  
+
   // Actions
   generateHanzi: (values: any) => Promise<void>;
   setBase64Canvas: (data: string) => void;
   reset: () => void;
-  
+
   togglePronunciation: (pronunciation: string) => void; // New action
-  
+
   setSelectedPronunciations: (pronunciations: string[]) => void; // New action;
   clearSelectedPronunciations: () => void; // New action
 
@@ -80,15 +82,16 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
   canvasImage: null,
   setCanvasImage: (image) => set({ canvasImage: image }),
 
-  setSelectedPronunciations: (pronunciationsArray) => set({ selectedPronunciations: pronunciationsArray}),
+  setSelectedPronunciations: (pronunciationsArray) =>
+    set({ selectedPronunciations: pronunciationsArray }),
 
   // New pronunciation actions
   togglePronunciation: (pronunciation) => {
     const current = get().selectedPronunciations;
     set({
       selectedPronunciations: current.includes(pronunciation)
-        ? current.filter(p => p !== pronunciation)
-        : [...current, pronunciation]
+        ? current.filter((p) => p !== pronunciation)
+        : [...current, pronunciation],
     });
   },
 
@@ -96,22 +99,40 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
 
   // Generate AI images
   generateHanzi: async (values) => {
-    set({ isLoading: true, error: null });
-    
+    set({ loading: true, error: null });
+    const toastId = toast.loading("Generating image...");
+
     try {
-      switch(values.model) {
+      let result: GenerationResponse;
+      switch (values.model) {
         case "jagilley/controlnet-scribble":
-          await generateControlNetScribble(values);
+          result = await generateControlNetScribble(values);
           break;
         case "qr2ai/img2paint_controlnet":
-          await generateImg2PaintControlNet(values);
+          result = await generateImg2PaintControlNet(values);
           break;
         default:
           throw new Error(`Unsupported model: ${values.model}`);
       }
+      console.log("#####################RESULT: ", result)
+      if (!result.success) {
+        set({ error: result.error, loading: false });
+        toast.error(result.error, { id: toastId });
+        return;
+      }
+      const dataWithInputs = Array.isArray(result.data)
+        ? result.data.map((url: string) => ({
+            url,
+            ...values,
+          }))
+        : [];
+
+      console.log("dataWithInputs: ", dataWithInputs);
+      set({ images: dataWithInputs, loading: false });
+      toast.success("Image generated successfully", { id: toastId });
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Generation failed' });
-      console.error('Generation error:', err);
+      set({ error: err instanceof Error ? err.message : "Generation failed" });
+      console.error("Generation error:", err);
     } finally {
       set({ isLoading: false });
     }
@@ -129,41 +150,41 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
 }));
 
 // Selector exports
-export const useDisplayedCharacter = () => 
-  useGenerateHanziStore(state => state.displayedCharacter);
+export const useDisplayedCharacter = () =>
+  useGenerateHanziStore((state) => state.displayedCharacter);
 
 export const useSetDisplayedCharacter = () =>
-  useGenerateHanziStore(state => state.setDisplayedCharacter);
+  useGenerateHanziStore((state) => state.setDisplayedCharacter);
 
 export const useCanvasImage = () =>
-  useGenerateHanziStore(state => state.canvasImage);
+  useGenerateHanziStore((state) => state.canvasImage);
 
 export const useSetCanvasImage = () =>
-  useGenerateHanziStore(state => state.setCanvasImage);
+  useGenerateHanziStore((state) => state.setCanvasImage);
 
 export const useSelectedPronunciations = () =>
-  useGenerateHanziStore(state => state.selectedPronunciations);
+  useGenerateHanziStore((state) => state.selectedPronunciations);
 
 export const useGenerateHanzi = () =>
-  useGenerateHanziStore(state => state.generateHanzi);
+  useGenerateHanziStore((state) => state.generateHanzi);
 
 // export const useTogglePronunciation = () =>
 //   useGenerateHanziStore(state => state.togglePronunciation);
 
 export const useSetSelectedPronunciations = () =>
-  useGenerateHanziStore(state => state.setSelectedPronunciations);
+  useGenerateHanziStore((state) => state.setSelectedPronunciations);
 
 export const useClearSelectedPronunciations = () =>
-  useGenerateHanziStore(state => state.clearSelectedPronunciations);
+  useGenerateHanziStore((state) => state.clearSelectedPronunciations);
 
-export const useShowTraditional = () => 
-  useGenerateHanziStore(state => state.showTraditional);
+export const useShowTraditional = () =>
+  useGenerateHanziStore((state) => state.showTraditional);
 
-export const useHanziData = () => 
-  useGenerateHanziStore(state => state.hanziData);
+export const useHanziData = () =>
+  useGenerateHanziStore((state) => state.hanziData);
 
-export const useGenerationState = () => 
-  useGenerateHanziStore(state => ({
+export const useGenerationState = () =>
+  useGenerateHanziStore((state) => ({
     loading: state.loading,
     images: state.images,
     error: state.error,

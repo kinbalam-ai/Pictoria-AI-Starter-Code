@@ -132,6 +132,10 @@ const GeneratedHanzi = ({ onImageGenerated }: GeneratedHanziProps) => {
     return () => clearTimeout(timer);
   }, [generateHanziImage]);
 
+  useEffect(() => {
+    console.log("current Images: ", images)
+  }, [images])
+
   if (images.length === 0) {
     return (
       <Card className="w-full max-w-2xl bg-muted rounded-lg overflow-hidden">
