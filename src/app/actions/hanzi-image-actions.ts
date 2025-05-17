@@ -7,6 +7,12 @@
 import Replicate from "replicate";
 import { revalidateTag } from "next/cache";
 import { GenerationValues } from "../(dashboard)/hanzi-generation/_components/types";
+import { Database } from "@database.types";
+
+import { createClient } from "@/lib/supabase/server";
+import { randomUUID } from "crypto";
+import { imgUrlToBlob } from "./image-actions";
+import { imageMeta } from "image-meta";
 
 export type GenerationResponse = {
   error: string | null;
@@ -62,8 +68,8 @@ export async function generateControlNetScribble(
         image: input.canvasImage,
         prompt: input.prompt,
         seed: input.seed,
-        scale: input.scale || 9,
-        ddim_steps: input.ddim_steps || 20,
+        guidance_scale: input.scale || 9,
+        num_inference_steps: input.ddim_steps || 20,
         a_prompt: input.a_prompt || "best quality, extremely detailed",
         n_prompt: input.n_prompt || "longbody, lowres, bad anatomy, bad hands",
       },
@@ -162,19 +168,120 @@ export async function generateImg2PaintControlNet(
   }
 }
 
+type StoreHanziImageInput = {
+  url: string;
+} & Database["public"]["Tables"]["generated_hanzi"]["Insert"];
+
+interface ImageResponse {
+  error: string | null;
+  success: boolean;
+  data: any | null;
+}
+
 export async function storeHanziImages(
-  images: Array<{
-    url: string;
-    model: string;
-    prompt: string;
-    num_inference_steps: number;
-    num_outputs: number;
-    guidance: number;
-    aspect_ratio: string;
-    output_format: string;
-    output_quality: number;
-  }>
-): Promise<void> {
+  data: StoreHanziImageInput[]
+): Promise<ImageResponse> {
   // TODO: Implement actual Hanzi image storage logic
-  console.log("Storing Hanzi images (not implemented)", images);
+  console.log("Storing Hanzi images (not implemented)", data);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      error: "Unauthorized",
+      success: false,
+      data: null,
+    };
+  }
+
+  const uploadResults = [];
+
+  for (const hanzi of data) {
+    // try {
+    // !!
+    if (!hanzi.url || !hanzi.standard_character) {
+      throw new Error("Missing required fields (url or character)");
+    }
+
+    // 1. Download the generated image
+    const arrayBuffer = await imgUrlToBlob(hanzi.url);
+    const { width, height, type } = imageMeta(new Uint8Array(arrayBuffer));
+
+    // 2. Generate unique filename
+    const fileName = `hanzi_${randomUUID()}.${type}`;
+    const filePath = `${user.id}/${fileName}`;
+
+    // !! 3. Upload to storage
+    console.log("Uploading to storage:", filePath);
+    const { error: storageError } = await supabase.storage
+      .from("generated-hanzi")
+      .upload(filePath, arrayBuffer, {
+        contentType: `image/${type}`,
+        cacheControl: "public, max-age=3600",
+        upsert: true,
+      });
+
+    if (storageError) {
+      throw storageError;
+    }
+
+    // console.log("Saving image to database...");
+    // // 4. Get public URL
+    // const { data: urlData } = supabase.storage
+    //   .from("generated-hanzi")
+    //   .getPublicUrl(filePath);
+
+    const payload = {
+      user_id: user.id,
+      model: hanzi.model,
+      standard_character: hanzi.standard_character,
+      traditional_character: hanzi.traditional_character,
+      image_name: fileName,
+      prompt: hanzi.prompt,
+      guidance_scale: hanzi.guidance_scale,
+      num_inference_steps: hanzi.num_inference_steps,
+      // output_format: type, // or hanzi.output_format if you prefer // !!
+      // width,
+      // height,
+      // aspect_ratio: hanzi.aspect_ratio || `${width}:${height}`,
+      // image_url: urlData.publicUrl,
+    };
+
+    // 5. Save metadata to database
+    console.log("Saving Hanzi to database... PAYLOAD: ", payload);
+    const { data: dbData, error: dbError } = await supabase
+      .from("generated_hanzi")
+      .insert([payload])
+      .select();
+
+    uploadResults.push({
+      fileName,
+      error: dbError?.message || null,
+      success: !dbError,
+      data: dbData || null,
+    });
+
+    // } catch (error) {
+    //   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    //   uploadResults.push({
+    //     fileName: hanzi.image_name || 'unknown',
+    //     error: errorMessage,
+    //     success: false,
+    //     data: null,
+    //   });
+    // }
+  }
+
+  // Revalidate relevant tags
+  revalidateTag("hanzi-generations");
+  revalidateTag("dashboard-hanzi");
+
+  return {
+    error: null,
+    success: true,
+    data: { results: uploadResults },
+  };
 }

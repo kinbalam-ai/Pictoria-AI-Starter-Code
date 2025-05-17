@@ -235,6 +235,8 @@ const Configurations = ({
         selectedPronunciations,
         character: displayCharacter,
         // Add any other needed values
+        standard_character: hanziData?.standard_character || "",
+        traditional_character: hanziData?.traditional_character || "",
       };
 
       await generateHanzi(payload);

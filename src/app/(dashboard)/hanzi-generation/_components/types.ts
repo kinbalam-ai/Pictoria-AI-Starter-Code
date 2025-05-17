@@ -6,7 +6,10 @@ export type GenerationValues = {
   canvasImage: string | null;
   selectedPronunciations: string[];
   character: string;
-  
+  // Add any other needed values
+  standard_character?: string;
+  traditional_character?: string;
+
   // Model-specific fields
   scale?: number;
   ddim_steps?: number;

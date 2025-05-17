@@ -6,6 +6,7 @@ import {
   generateControlNetScribble,
   generateImg2PaintControlNet,
   GenerationResponse,
+  storeHanziImages,
 } from "@/app/actions/hanzi-image-actions";
 import { toast } from "sonner";
 
@@ -114,7 +115,7 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
         default:
           throw new Error(`Unsupported model: ${values.model}`);
       }
-      console.log("#####################RESULT: ", result)
+      console.log("#####################RESULT: ", result);
       if (!result.success) {
         set({ error: result.error, loading: false });
         toast.error(result.error, { id: toastId });
@@ -130,6 +131,34 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
       console.log("dataWithInputs: ", dataWithInputs);
       set({ images: dataWithInputs, loading: false });
       toast.success("Image generated successfully", { id: toastId });
+
+      const imageData = dataWithInputs.map((values) => ({
+        url: values.url,
+        model: values.model,
+        // standard_character: values.character,
+        // traditional_character: values.hanziData?.traditional_character || null,
+        standard_character: values.standard_character,
+        traditional_character: values.traditional_character,
+        prompt: values.prompt,
+        guidance_scale: values.guidance || 9, // !!
+        num_inference_steps: values.num_inference_steps || 50, // !!
+      }));
+
+      // const testData = [
+      //   {
+      //     url: "https://replicate.delivery/pbxt/.../output.png",
+      //     model: "jagilley/controlnet-scribble",
+      //     standard_character: "爱",
+      //     traditional_character: "愛",
+      //     prompt: "A beautiful red Chinese character with floral decorations",
+      //     guidance_scale: 7.5,
+      //     num_inference_steps: 50,
+      //   },
+      // ];
+
+      // Store the generated images
+      await storeHanziImages(imageData);
+      toast.success("Images stored successfully");
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "Generation failed" });
       console.error("Generation error:", err);
