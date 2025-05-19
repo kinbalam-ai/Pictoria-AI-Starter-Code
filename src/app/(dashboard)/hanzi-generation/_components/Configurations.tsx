@@ -582,9 +582,17 @@ const Configurations = ({
                           <Input
                             {...field}
                             type="number"
-                            onChange={(e) =>
-                              field.onChange(Number(e.target.value))
-                            }
+                            value={field.value === -1 ? "-1" : field.value} // Show empty string for -1
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              // Convert to number or use -1 if empty
+                              field.onChange(value === "" ? -1 : Number(value));
+                            }}
+                            onBlur={(e) => {
+                              if (e.target.value === "") {
+                                field.onChange(-1);
+                              }
+                            }}
                           />
                         </FormControl>
                       </FormItem>
