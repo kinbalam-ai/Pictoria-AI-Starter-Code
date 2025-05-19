@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Info, ChevronDown, ChevronUp } from "lucide-react";
 import {
@@ -42,7 +42,6 @@ import {
   useSetDisplayedCharacter,
   useSetSelectedPronunciations,
 } from "./useGenerateHanziStore";
-import { GenerationValues } from "./types";
 
 type ModelConfig = {
   fields: Record<
@@ -52,12 +51,12 @@ type ModelConfig = {
       label: string;
       min?: number;
       max?: number;
-      default: any;
+      default: number | string;
       step?: number;
       advanced?: boolean;
     }
   >;
-  defaults: Record<string, any>;
+  defaults: Record<string, number | string>;
 };
 
 const MODEL_CONFIGS: Record<string, ModelConfig> = {
@@ -126,27 +125,92 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
   },
 };
 
-const formSchema = z.object({
-  model: z.string().min(1, {
-    message: "Please select a model to use for generation",
-  }),
-  prompt: z
-    .string()
-    .min(1, {
-      message: "Prompt cannot be empty - describe what you want to generate",
-    })
-    .max(1000, {
-      message: "Prompt must be less than 1000 characters",
+type BaseGenerationFormValues = {
+  model: string;
+  prompt: string;
+  seed: number;
+  // Fields from jagilley/controlnet-scribble
+  scale?: number;
+  ddim_steps?: number;
+  a_prompt?: string;
+  n_prompt?: string;
+  // Fields from qr2ai/img2paint_controlnet
+  condition_scale?: number;
+  num_inference_steps?: number;
+  negative_prompt?: string;
+};
+
+// 2. Create a type-safe default values initializer
+// const getDefaultValues = (selectedModel?: string): BaseGenerationFormValues => {
+//   const baseDefaults: BaseGenerationFormValues = {
+//     model: selectedModel || "jagilley/controlnet-scribble",
+//     prompt: "",
+//     seed: -1,
+//   };
+
+//   if (!selectedModel || !MODEL_CONFIGS[selectedModel]) {
+//     return baseDefaults;
+//   }
+
+//   const modelDefaults = Object.entries(MODEL_CONFIGS[selectedModel].fields)
+//     .reduce((acc, [key, field]) => {
+//       // Type-safe assignment
+//       if (field.type === "number") {
+//         acc[key as keyof BaseGenerationFormValues] = field.default as number;
+//       } else {
+//         acc[key as keyof BaseGenerationFormValues] = field.default as string;
+//       }
+//       return acc;
+//     }, {} as Partial<BaseGenerationFormValues>);
+
+//   return {
+//     ...baseDefaults,
+//     ...modelDefaults,
+//   };
+// };
+
+const createFormSchema = (selectedModel?: string) => {
+  // Define base fields
+  const baseFields = {
+    model: z.string().min(1, {
+      message: "Please select a model to use for generation",
     }),
-  seed: z
-    .number()
-    .int()
-    .min(-1)
-    .refine((val) => val === -1 || val >= 0, {
-      message:
-        "Use -1 for random seed or a positive number for reproducibility",
-    }),
-});
+    prompt: z
+      .string()
+      .min(1, {
+        message: "Prompt cannot be empty - describe what you want to generate",
+      })
+      .max(1000, {
+        message: "Prompt must be less than 1000 characters",
+      }),
+    seed: z
+      .number()
+      .int()
+      .min(-1)
+      .refine((val) => val === -1 || val >= 0, {
+        message:
+          "Use -1 for random seed or a positive number for reproducibility",
+      }),
+  };
+
+  if (!selectedModel) return z.object(baseFields);
+
+  const modelConfig = MODEL_CONFIGS[selectedModel];
+  if (!modelConfig) return z.object(baseFields);
+
+  // Add model-specific fields
+  const allFields = {
+    ...baseFields,
+    ...Object.entries(modelConfig.fields).reduce((acc, [fieldName, config]) => {
+      return {
+        ...acc,
+        [fieldName]: config.type === "number" ? z.number() : z.string(),
+      };
+    }, {} as Record<string, z.ZodNumber | z.ZodString>),
+  };
+
+  return z.object(allFields);
+};
 
 interface ConfigurationsProps {
   userModels: any[];
@@ -162,8 +226,10 @@ const Configurations = ({
   character,
 }: ConfigurationsProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(
+    model_id || "jagilley/controlnet-scribble"
+  );
   const [displayCharacter, setDisplayCharacter] = useState(() => {
-    // Default to showing traditional if the URL character matches traditional
     const showTraditional = hanziData?.traditional_character === character;
     return showTraditional && hanziData?.traditional_character
       ? hanziData.traditional_character
@@ -173,96 +239,110 @@ const Configurations = ({
   const selectedPronunciations = useSelectedPronunciations();
   const setSelectedPronunciations = useSetSelectedPronunciations();
 
-  // Initialize pronunciation order
+  const formSchema = useMemo(
+    () => createFormSchema(selectedModel),
+    [selectedModel]
+  );
+
+  const form = useForm<BaseGenerationFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      model: selectedModel,
+      prompt: "",
+      seed: -1,
+      ...(selectedModel && MODEL_CONFIGS[selectedModel]
+        ? Object.entries(MODEL_CONFIGS[selectedModel].fields).reduce(
+            (acc, [key, field]) => {
+              // Type assertion here
+              (acc as Record<string, string | number>)[key] = field.default;
+              return acc;
+            },
+            {} as Partial<BaseGenerationFormValues>
+          )
+        : {}),
+    } as BaseGenerationFormValues, // Final type assertion
+  });
+
   useEffect(() => {
     if (hanziData?.pinyin) {
       const order = hanziData.pinyin.map((p) => p.pronunciation);
       setPronunciationOrder(order);
-      // Initialize selections as empty but in correct order
       setSelectedPronunciations([]);
     }
   }, [hanziData]);
+
   const togglePronunciation = (pronunciation: string) => {
     const newSelected = selectedPronunciations.includes(pronunciation)
       ? selectedPronunciations.filter((p) => p !== pronunciation)
       : [...selectedPronunciations, pronunciation];
 
-    // Sort the selected pronunciations according to the original order
     const orderedSelected = pronunciationOrder.filter((p) =>
       newSelected.includes(p)
     );
-
     setSelectedPronunciations(orderedSelected);
   };
 
   const canvasImage = useCanvasImage();
   const setDisplayedCharacter = useSetDisplayedCharacter();
 
-  // Sync to Zustand
   useEffect(() => {
     setDisplayedCharacter(displayCharacter);
   }, [displayCharacter]);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      model: model_id || "jagilley/controlnet-scribble",
-      prompt: "",
-      seed: -1,
-      ...Object.values(MODEL_CONFIGS).reduce((acc, config) => {
-        Object.entries(config.fields).forEach(([key, field]) => {
-          acc[key as keyof typeof acc] = field.default;
-        });
-        return acc;
-      }, {} as Record<string, any>),
-    },
-  });
+  const handleModelChange = (newModel: string) => {
+    const prevValues = form.getValues();
+    const newDefaults = MODEL_CONFIGS[newModel]?.defaults || {};
 
-  const selectedModel = form.watch("model");
+    form.reset({
+      ...prevValues,
+      model: newModel,
+      ...Object.fromEntries(
+        Object.entries(MODEL_CONFIGS[newModel]?.fields || {}).map(
+          ([key, field]) => [key, field.default]
+        )
+      ),
+      ...newDefaults,
+    } as BaseGenerationFormValues);
+
+    setSelectedModel(newModel);
+  };
 
   const generateHanzi = useGenerateHanzi();
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    // console.log("canvasImage: ", canvasImage)
-    console.log("Submitting values:", { ...values, canvasImage });
-    const modelConfig = MODEL_CONFIGS[values.model];
-    console.log("Submitting modelConfig:", modelConfig);
+  async function onSubmit(values: BaseGenerationFormValues) {
+    console.log("Form values:", values);
+    console.log("Model config:", MODEL_CONFIGS[values.model]);
 
-    try {
-      const payload: GenerationValues = {
-        ...values,
-        canvasImage,
-        selectedPronunciations,
-        character: displayCharacter,
-        // Add any other needed values
-        standard_character: hanziData?.standard_character || "",
-        traditional_character: hanziData?.traditional_character || "",
-      };
+    // try {
+    //   const payload = {
+    //     ...values,
+    //     canvasImage,
+    //     selectedPronunciations,
+    //     character: displayCharacter,
+    //     standard_character: hanziData?.standard_character || "",
+    //     traditional_character: hanziData?.traditional_character || "",
+    //   };
 
-      await generateHanzi(payload);
-    } catch (error) {
-      console.error("Error generating image:", error);
-      // Handle error
-    }
+    //   console.log("Full payload:", payload);
+    //   await generateHanzi(payload);
+    // } catch (error) {
+    //   console.error("Error generating image:", error);
+    // }
   }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-4">
-        {/* Your EXACT Hanzi Details Section */}
         {hanziData && (
           <fieldset className="rounded-lg border p-3 bg-background">
-            {/* Responsive header row */}
             <div className="flex justify-between items-start gap-4 mb-2">
               <legend className="text-sm font-medium px-1">
                 Hanzi Details
               </legend>
-
-              {/* Switch - now part of the flex flow */}
               {hanziData.traditional_character &&
                 hanziData.traditional_character !==
                   hanziData.standard_character && (
-                  <div className=" top-4 right-4 flex items-center gap-2">
+                  <div className="top-4 right-4 flex items-center gap-2">
                     <Switch
                       checked={
                         displayCharacter === hanziData.traditional_character
@@ -287,19 +367,12 @@ const Configurations = ({
                 )}
             </div>
 
-            {/* Content area with responsive layout */}
             <div className="flex flex-col xs:flex-row gap-3">
-              {/* Character display - fixed size */}
-              <div
-                className="w-12 h-12 flex items-center justify-center 
-                      bg-white dark:bg-gray-800 border rounded-lg shrink-0"
-              >
+              <div className="w-12 h-12 flex items-center justify-center bg-white dark:bg-gray-800 border rounded-lg shrink-0">
                 <span className="text-3xl font-bold">{displayCharacter}</span>
               </div>
 
-              {/* Details section */}
               <div className="grid gap-1.5 flex-1 min-w-0">
-                {/* Definition */}
                 <div className="flex items-baseline gap-2">
                   <p className="text-xs text-muted-foreground shrink-0">
                     Definition:
@@ -313,37 +386,27 @@ const Configurations = ({
                   <p className="text-xs text-muted-foreground shrink-0">
                     Pinyin:
                   </p>
-                  {/* Pinyin - Inline with definition when space allows */}
                   {hanziData.pinyin?.length > 0 && (
                     <div>
                       <div className="flex flex-wrap gap-1">
-                        {hanziData.pinyin?.length > 0 && (
-                          <div>
-                            <div className="flex flex-wrap gap-2">
-                              {hanziData?.pinyin?.map((pinyinObj) => {
-                                const isSelected =
-                                  selectedPronunciations.includes(
-                                    pinyinObj.pronunciation
-                                  );
-                                return (
-                                  <Button
-                                    key={pinyinObj.pronunciation}
-                                    type="button"
-                                    variant={isSelected ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() =>
-                                      togglePronunciation(
-                                        pinyinObj.pronunciation
-                                      )
-                                    }
-                                  >
-                                    {pinyinObj.pronunciation}
-                                  </Button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
+                        {hanziData.pinyin?.map((pinyinObj) => {
+                          const isSelected = selectedPronunciations.includes(
+                            pinyinObj.pronunciation
+                          );
+                          return (
+                            <Button
+                              key={pinyinObj.pronunciation}
+                              type="button"
+                              variant={isSelected ? "default" : "outline"}
+                              size="sm"
+                              onClick={() =>
+                                togglePronunciation(pinyinObj.pronunciation)
+                              }
+                            >
+                              {pinyinObj.pronunciation}
+                            </Button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -353,7 +416,6 @@ const Configurations = ({
           </fieldset>
         )}
 
-        {/* Optimized Form Section */}
         <fieldset className="rounded-lg border p-4 bg-background space-y-4">
           <legend className="-ml-1 px-1 text-sm font-medium">Settings</legend>
 
@@ -364,7 +426,7 @@ const Configurations = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Model</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={handleModelChange} value={field.value}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
@@ -413,54 +475,77 @@ const Configurations = ({
               <div className="grid gap-4">
                 {Object.entries(MODEL_CONFIGS[selectedModel].fields)
                   .filter(([_, config]) => !config.advanced)
-                  .map(([name, config]) => (
-                    <FormField
-                      key={name}
-                      control={form.control}
-                      name={name as any}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{config.label}</FormLabel>
-                          {config.type === "number" ? (
-                            <div className="space-y-2">
-                              <div className="flex gap-4">
-                                <FormControl>
-                                  <Input
-                                    {...field}
-                                    type="number"
-                                    min={config.min}
-                                    max={config.max}
-                                    step={config.step}
-                                    className="w-24"
-                                    onChange={(e) =>
-                                      field.onChange(Number(e.target.value))
-                                    }
-                                  />
-                                </FormControl>
-                                <Slider
-                                  value={[field.value ?? config.default]}
-                                  min={config.min}
-                                  max={config.max}
-                                  step={config.step}
-                                  onValueChange={(vals) =>
-                                    field.onChange(vals[0])
-                                  }
+                  .map(([name, config]) => {
+                    if (
+                      !form.getValues(name as keyof BaseGenerationFormValues)
+                    ) {
+                      form.setValue(
+                        name as keyof BaseGenerationFormValues,
+                        config.default
+                      );
+                    }
+
+                    return (
+                      <FormField
+                        key={name}
+                        control={form.control}
+                        name={name as keyof BaseGenerationFormValues}
+                        render={({ field }) => {
+                          if (config.type === "number") {
+                            return (
+                              <FormItem>
+                                <FormLabel>{config.label}</FormLabel>
+                                <div className="space-y-2">
+                                  <div className="flex gap-4">
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        type="number"
+                                        min={config.min}
+                                        max={config.max}
+                                        step={config.step ?? 1}
+                                        value={field.value as number}
+                                        onChange={(e) => {
+                                          const value = Number(e.target.value);
+                                          field.onChange(
+                                            isNaN(value)
+                                              ? config.default
+                                              : value
+                                          );
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <Slider
+                                      value={[field.value as number]}
+                                      min={config.min}
+                                      max={config.max}
+                                      step={config.step ?? 1}
+                                      onValueChange={(vals) =>
+                                        field.onChange(vals[0])
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              </FormItem>
+                            );
+                          }
+
+                          return (
+                            <FormItem>
+                              <FormLabel>{config.label}</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  {...field}
+                                  value={field.value as string}
+                                  onChange={field.onChange}
                                 />
-                              </div>
-                            </div>
-                          ) : (
-                            <FormControl>
-                              <Textarea
-                                {...field}
-                                rows={3}
-                                defaultValue={config.default}
-                              />
-                            </FormControl>
-                          )}
-                        </FormItem>
-                      )}
-                    />
-                  ))}
+                              </FormControl>
+                            </FormItem>
+                          );
+                        }}
+                      />
+                    );
+                  })}
               </div>
             )}
 
@@ -510,25 +595,38 @@ const Configurations = ({
                     <div className="grid gap-4">
                       {Object.entries(MODEL_CONFIGS[selectedModel].fields)
                         .filter(([_, config]) => config.advanced)
-                        .map(([name, config]) => (
-                          <FormField
-                            key={name}
-                            control={form.control}
-                            name={name as any}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>{config.label}</FormLabel>
-                                <FormControl>
-                                  <Textarea
-                                    {...field}
-                                    rows={3}
-                                    // Remove defaultValue since field provides value
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        ))}
+                        .map(([name, config]) => {
+                          if (
+                            !form.getValues(
+                              name as keyof BaseGenerationFormValues
+                            )
+                          ) {
+                            form.setValue(
+                              name as keyof BaseGenerationFormValues,
+                              config.default
+                            );
+                          }
+
+                          return (
+                            <FormField
+                              key={name}
+                              control={form.control}
+                              name={name as keyof BaseGenerationFormValues}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>{config.label}</FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      {...field}
+                                      value={field.value as string}
+                                      onChange={field.onChange}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          );
+                        })}
                     </div>
                   )}
                 </div>
