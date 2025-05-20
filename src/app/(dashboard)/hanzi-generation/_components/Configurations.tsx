@@ -62,7 +62,8 @@ type ModelConfig = {
 const MODEL_CONFIGS: Record<string, ModelConfig> = {
   "jagilley/controlnet-scribble": {
     fields: {
-      guidance_scale: {  // Changed from 'scale'
+      guidance_scale: {
+        // Changed from 'scale'
         type: "number",
         label: "Guidance Scale",
         min: 0.1,
@@ -70,7 +71,8 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
         default: 9,
         step: 0.1,
       },
-      num_inference_steps: {  // Changed from 'ddim_steps'
+      num_inference_steps: {
+        // Changed from 'ddim_steps'
         type: "number",
         label: "Steps",
         min: 1,
@@ -87,7 +89,7 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
         type: "text",
         label: "Negative Prompt",
         default:
-          "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality",
+          "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, bad quality, sketches, nsfw, watermark, brand, copyright, trademark",
         advanced: true,
       },
     },
@@ -97,7 +99,8 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
   },
   "qr2ai/img2paint_controlnet": {
     fields: {
-      guidance_scale: {  // Changed from 'condition_scale'
+      guidance_scale: {
+        // Changed from 'condition_scale'
         type: "number",
         label: "ControlNet Scale",
         min: 0,
@@ -105,17 +108,19 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
         default: 0.5,
         step: 0.1,
       },
-      num_inference_steps: {  // Already correct
+      num_inference_steps: {
+        // Already correct
         type: "number",
         label: "Denoising Steps",
         min: 1,
         max: 500,
         default: 50,
       },
-      negative_prompt: {
+      n_prompt: {
         type: "text",
         label: "Negative Prompt",
-        default: "low quality, bad quality, sketches, nsfw",
+        default:
+          "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, bad quality, sketches, nsfw, watermark, brand, copyright, trademark",
         advanced: true,
       },
     },
@@ -316,8 +321,8 @@ const Configurations = ({
         canvasImage,
         selectedPronunciations,
         character: displayCharacter,
-        standard_character: hanziData?.standard_character || "",
-        traditional_character: hanziData?.traditional_character || "",
+        standard_character: hanziData?.standard_character,
+        traditional_character: hanziData?.traditional_character,
       };
 
       console.log("Full payload:", payload);
