@@ -5,6 +5,7 @@ import { create } from "zustand";
 import {
   generateControlNetScribble,
   generateImg2PaintControlNet,
+  generateOpenAIImage,
   GenerationResponse,
   storeHanziImages,
 } from "@/app/actions/hanzi-image-actions";
@@ -105,56 +106,63 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
 
     try {
       let result: GenerationResponse;
-      switch (values.model) {
-        case "jagilley/controlnet-scribble":
+
+      // Determine which generation function to use
+      switch (true) {
+        case values.model === "jagilley/controlnet-scribble":
           result = await generateControlNetScribble(values);
           break;
-        case "qr2ai/img2paint_controlnet":
+        case values.model === "qr2ai/img2paint_controlnet":
           result = await generateImg2PaintControlNet(values);
+          break;
+        case values.model === "openai/dall-e-3":
+          result = await generateOpenAIImage({
+            ...values,
+            model: "dall-e-3", // Ensure correct model name is passed
+            pronunciations: get().selectedPronunciations,
+          });
           break;
         default:
           throw new Error(`Unsupported model: ${values.model}`);
       }
-      console.log("#####################RESULT: ", result);
+
+      console.log("Generation result:", result);
       if (!result.success) {
         set({ error: result.error, loading: false });
         toast.error(result.error, { id: toastId });
         return;
       }
+
+      // Process the results
       const dataWithInputs = Array.isArray(result.data)
         ? result.data.map((url: string) => ({
             url,
             ...values,
+            // Ensure we have the character data for storage
+            standard_character:
+              values.standard_character || get().hanziData?.standard_character,
+            traditional_character:
+              values.traditional_character ||
+              get().hanziData?.traditional_character,
           }))
         : [];
 
-      console.log("dataWithInputs: ", dataWithInputs);
       set({ images: dataWithInputs, loading: false });
       toast.success("Image generated successfully", { id: toastId });
 
-      const imageData = dataWithInputs.map((values) => ({
-        url: values.url,
-        model: values.model,
-        // standard_character: values.character,
-        // traditional_character: values.hanziData?.traditional_character || null,
-        standard_character: values.standard_character,
-        traditional_character: values.traditional_character,
-        prompt: values.prompt,
-        guidance_scale: values.guidance_scale,
-        num_inference_steps: values.num_inference_steps,
+      // Prepare data for storage
+      const imageData = dataWithInputs.map((generated) => ({
+        url: generated.url,
+        model: generated.model,
+        standard_character: generated.standard_character,
+        traditional_character: generated.traditional_character,
+        prompt: generated.prompt,
+        // Only include these for Replicate models
+        ...(generated.model !== "openai/dall-e-3" && {
+          guidance_scale: generated.guidance_scale,
+          num_inference_steps: generated.num_inference_steps,
+        }),
       }));
-
-      // const testData = [
-      //   {
-      //     url: "https://replicate.delivery/pbxt/.../output.png",
-      //     model: "jagilley/controlnet-scribble",
-      //     standard_character: "爱",
-      //     traditional_character: "愛",
-      //     prompt: "A beautiful red Chinese character with floral decorations",
-      //     guidance_scale: 7.5,
-      //     num_inference_steps: 50,
-      //   },
-      // ];
 
       // Store the generated images
       await storeHanziImages(imageData);

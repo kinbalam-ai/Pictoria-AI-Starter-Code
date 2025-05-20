@@ -128,6 +128,35 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
       seed: 0,
     },
   },
+  "openai/dall-e-3": {
+    fields: {
+      size: {
+        type: "text",
+        label: "Image Size",
+        default: "1024x1024",
+        advanced: true,
+      },
+      quality: {
+        type: "text",
+        label: "Quality",
+        default: "standard",
+        advanced: true,
+      },
+      style: {
+        type: "text",
+        label: "Style",
+        default: "vivid",
+        advanced: true,
+      },
+    },
+    defaults: {
+      // Add default values for any fields that should have different defaults
+      // than what's specified in the fields configuration
+      size: "1024x1024",
+      quality: "standard",
+      style: "vivid",
+    },
+  },
 };
 
 type BaseGenerationFormValues = {
@@ -135,12 +164,16 @@ type BaseGenerationFormValues = {
   prompt: string;
   seed: number;
   // Standardized fields
-  guidance_scale: number;
-  num_inference_steps: number;
+  guidance_scale?: number;
+  num_inference_steps?: number;
   // Other fields
   a_prompt?: string;
   n_prompt?: string;
   negative_prompt?: string;
+  // OpenAI-specific fields
+  size?: "256x256" | "512x512" | "1024x1024" | "1024x1792" | "1792x1024";
+  quality?: "standard" | "hd";
+  style?: "vivid" | "natural";
 };
 // 2. Create a type-safe default values initializer
 // const getDefaultValues = (selectedModel?: string): BaseGenerationFormValues => {
@@ -172,7 +205,7 @@ type BaseGenerationFormValues = {
 // };
 
 const createFormSchema = (selectedModel?: string) => {
-  // Define base fields
+  // Base fields for all models
   const baseFields = {
     model: z.string().min(1, {
       message: "Please select a model to use for generation",
@@ -208,7 +241,7 @@ const createFormSchema = (selectedModel?: string) => {
         ...acc,
         [fieldName]: config.type === "number" ? z.number() : z.string(),
       };
-    }, {} as Record<string, z.ZodNumber | z.ZodString>),
+    }, {}),
   };
 
   return z.object(allFields);
@@ -252,17 +285,20 @@ const Configurations = ({
       model: selectedModel,
       prompt: "",
       seed: -1,
+      // Add OpenAI defaults
+      size: "1024x1024",
+      quality: "standard",
+      style: "vivid",
       ...(selectedModel && MODEL_CONFIGS[selectedModel]
         ? Object.entries(MODEL_CONFIGS[selectedModel].fields).reduce(
             (acc, [key, field]) => {
-              // Type assertion here
               (acc as Record<string, string | number>)[key] = field.default;
               return acc;
             },
             {} as Partial<BaseGenerationFormValues>
           )
         : {}),
-    } as BaseGenerationFormValues, // Final type assertion
+    },
   });
 
   useEffect(() => {
@@ -313,7 +349,6 @@ const Configurations = ({
 
   async function onSubmit(values: BaseGenerationFormValues) {
     console.log("Form values:", values);
-    console.log("Model config:", MODEL_CONFIGS[values.model]);
 
     try {
       const payload = {
@@ -325,7 +360,7 @@ const Configurations = ({
         traditional_character: hanziData?.traditional_character,
       };
 
-      console.log("Full payload:", payload);
+      // The store's generateHanzi will handle the appropriate API call
       await generateHanzi(payload);
     } catch (error) {
       console.error("Error generating image:", error);
@@ -439,6 +474,9 @@ const Configurations = ({
                       <SelectItem value="qr2ai/img2paint_controlnet">
                         Img2Paint ControlNet
                       </SelectItem>
+                      <SelectItem value="openai/dall-e-3">
+                        OpenAI DALL·E 3
+                      </SelectItem>
                       {userModels?.map(
                         (model) =>
                           model.training_status === "succeeded" && (
@@ -475,29 +513,266 @@ const Configurations = ({
 
             {selectedModel && MODEL_CONFIGS[selectedModel] && (
               <div className="grid gap-4">
-                {Object.entries(MODEL_CONFIGS[selectedModel].fields)
-                  .filter(([_, config]) => !config.advanced)
-                  .map(([name, config]) => {
-                    if (
-                      !form.getValues(name as keyof BaseGenerationFormValues)
-                    ) {
-                      form.setValue(
-                        name as keyof BaseGenerationFormValues,
-                        config.default
-                      );
-                    }
-
-                    return (
-                      <FormField
-                        key={name}
-                        control={form.control}
-                        name={name as keyof BaseGenerationFormValues}
-                        render={({ field }) => {
-                          if (config.type === "number") {
+                {/* Show only relevant fields based on model */}
+                {selectedModel !== "openai/dall-e-3" ? (
+                  /* Replicate model fields */
+                  <>
+                    {Object.entries(MODEL_CONFIGS[selectedModel].fields)
+                      .filter(([_, config]) => !config.advanced)
+                      .map(([name, config]) => (
+                        <FormField
+                          key={name}
+                          control={form.control}
+                          name={name as keyof BaseGenerationFormValues}
+                          render={({ field }) => {
+                            if (config.type === "number") {
+                              return (
+                                <FormItem>
+                                  <FormLabel>{config.label}</FormLabel>
+                                  <div className="space-y-2">
+                                    <div className="flex gap-4">
+                                      <FormControl>
+                                        <Input
+                                          {...field}
+                                          type="number"
+                                          min={config.min}
+                                          max={config.max}
+                                          step={config.step ?? 1}
+                                          value={field.value as number}
+                                          onChange={(e) => {
+                                            const value = Number(
+                                              e.target.value
+                                            );
+                                            field.onChange(
+                                              isNaN(value)
+                                                ? config.default
+                                                : value
+                                            );
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <Slider
+                                        value={[field.value as number]}
+                                        min={config.min}
+                                        max={config.max}
+                                        step={config.step ?? 1}
+                                        onValueChange={(vals) =>
+                                          field.onChange(vals[0])
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                </FormItem>
+                              );
+                            }
                             return (
                               <FormItem>
                                 <FormLabel>{config.label}</FormLabel>
-                                <div className="space-y-2">
+                                <FormControl>
+                                  <Textarea
+                                    {...field}
+                                    value={field.value as string}
+                                    onChange={field.onChange}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            );
+                          }}
+                        />
+                      ))}
+                  </>
+                ) : (
+                  /* OpenAI-specific guidance */
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Info className="h-4 w-4" />
+                      <span>
+                        For best results with DALL·E 3, describe the artistic
+                        style and context
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Keep this single prompt field for all models */}
+            {/* <FormField
+              control={form.control}
+              name="prompt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Prompt</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      rows={3}
+                      placeholder={
+                        selectedModel === "openai/dall-e-3"
+                          ? "Example: 'A watercolor painting of the character surrounded by cherry blossoms, soft pastel colors, delicate brush strokes'"
+                          : "Describe the image you want to generate..."
+                      }
+                      className="min-h-[120px]"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            /> */}
+
+            <div className="space-y-4">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground w-full justify-start"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+              >
+                {showAdvanced ? (
+                  <>
+                    <ChevronUp className="mr-2 h-4 w-4" />
+                    Hide Advanced
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="mr-2 h-4 w-4" />
+                    Show Advanced
+                  </>
+                )}
+              </Button>
+
+              {showAdvanced && (
+                <div className="space-y-4 border-t pt-4">
+                  {/* Seed field - show for all models */}
+                  <FormField
+                    control={form.control}
+                    name="seed"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Seed</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            value={field.value === -1 ? "" : field.value}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              field.onChange(value === "" ? -1 : Number(value));
+                            }}
+                            onBlur={(e) => {
+                              if (e.target.value === "") {
+                                field.onChange(-1);
+                              }
+                            }}
+                            placeholder="-1 for random"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Model-specific advanced options */}
+                  {selectedModel === "openai/dall-e-3" ? (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="size"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Image Size</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select size" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1024x1024">
+                                  1024x1024 (Square)
+                                </SelectItem>
+                                <SelectItem value="1024x1792">
+                                  1024x1792 (Portrait)
+                                </SelectItem>
+                                <SelectItem value="1792x1024">
+                                  1792x1024 (Landscape)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="quality"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Quality</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select quality" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="standard">
+                                  Standard
+                                </SelectItem>
+                                <SelectItem value="hd">
+                                  HD (Higher Quality)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="style"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Style</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select style" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="vivid">
+                                  Vivid (More dramatic)
+                                </SelectItem>
+                                <SelectItem value="natural">
+                                  Natural (More realistic)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  ) : (
+                    /* Advanced fields for Replicate models */
+                    Object.entries(MODEL_CONFIGS[selectedModel].fields)
+                      .filter(([_, config]) => config.advanced)
+                      .map(([name, config]) => (
+                        <FormField
+                          key={name}
+                          control={form.control}
+                          name={name as keyof BaseGenerationFormValues}
+                          render={({ field }) => {
+                            if (config.type === "number") {
+                              return (
+                                <FormItem>
+                                  <FormLabel>{config.label}</FormLabel>
                                   <div className="flex gap-4">
                                     <FormControl>
                                       <Input
@@ -527,117 +802,26 @@ const Configurations = ({
                                       }
                                     />
                                   </div>
-                                </div>
+                                  <FormMessage />
+                                </FormItem>
+                              );
+                            }
+                            return (
+                              <FormItem>
+                                <FormLabel>{config.label}</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    {...field}
+                                    value={field.value as string}
+                                    onChange={field.onChange}
+                                  />
+                                </FormControl>
+                                <FormMessage />
                               </FormItem>
                             );
-                          }
-
-                          return (
-                            <FormItem>
-                              <FormLabel>{config.label}</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  {...field}
-                                  value={field.value as string}
-                                  onChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          );
-                        }}
-                      />
-                    );
-                  })}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground w-full justify-start"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-              >
-                {showAdvanced ? (
-                  <>
-                    <ChevronUp className="mr-2 h-4 w-4" />
-                    Hide Advanced
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="mr-2 h-4 w-4" />
-                    Show Advanced
-                  </>
-                )}
-              </Button>
-
-              {showAdvanced && (
-                <div className="space-y-4 border-t pt-4">
-                  <FormField
-                    control={form.control}
-                    name="seed"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Seed</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            value={field.value === -1 ? "-1" : field.value} // Show empty string for -1
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              // Convert to number or use -1 if empty
-                              field.onChange(value === "" ? -1 : Number(value));
-                            }}
-                            onBlur={(e) => {
-                              if (e.target.value === "") {
-                                field.onChange(-1);
-                              }
-                            }}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  {selectedModel && MODEL_CONFIGS[selectedModel] && (
-                    <div className="grid gap-4">
-                      {Object.entries(MODEL_CONFIGS[selectedModel].fields)
-                        .filter(([_, config]) => config.advanced)
-                        .map(([name, config]) => {
-                          if (
-                            !form.getValues(
-                              name as keyof BaseGenerationFormValues
-                            )
-                          ) {
-                            form.setValue(
-                              name as keyof BaseGenerationFormValues,
-                              config.default
-                            );
-                          }
-
-                          return (
-                            <FormField
-                              key={name}
-                              control={form.control}
-                              name={name as keyof BaseGenerationFormValues}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{config.label}</FormLabel>
-                                  <FormControl>
-                                    <Textarea
-                                      {...field}
-                                      value={field.value as string}
-                                      onChange={field.onChange}
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          );
-                        })}
-                    </div>
+                          }}
+                        />
+                      ))
                   )}
                 </div>
               )}

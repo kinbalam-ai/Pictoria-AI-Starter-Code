@@ -19,6 +19,11 @@ const nextConfig:NextConfig = {
         protocol: "https",
         hostname: "hyuthkkrcqzymoqvitti.supabase.co", // Update this to your supabase url
       },
+      {
+        protocol: 'https',
+        hostname: 'oaidalleapiprodscus.blob.core.windows.net',
+        pathname: '/**',
+      },
     ],
   },
 };

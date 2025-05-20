@@ -13,6 +13,14 @@ import { createClient } from "@/lib/supabase/server";
 import { randomUUID } from "crypto";
 import { imgUrlToBlob } from "./image-actions";
 import { imageMeta } from "image-meta";
+// Add this to the top of hanzi-image-actions.ts
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Add this new function to hanzi-image-actions.ts
 
 export type GenerationResponse = {
   error: string | null;
@@ -162,6 +170,84 @@ export async function generateImg2PaintControlNet(
     console.error("Img2Paint Generation ERROR:", error);
     return {
       error: error.message || "Failed to generate image",
+      success: false,
+      data: [],
+    };
+  }
+}
+
+export async function generateOpenAIImage(input: {
+  prompt: string;
+  character: string;
+  canvasImage: string;
+  pronunciations?: string[];
+  model?: string;
+  size?: "256x256" | "512x512" | "1024x1024" | "1024x1792" | "1792x1024";
+  quality?: "standard" | "hd";
+  style?: "vivid" | "natural";
+}): Promise<GenerationResponse> {
+  if (!process.env.OPENAI_API_KEY) {
+    return {
+      error: "Missing OPENAI_API_KEY",
+      success: false,
+      data: [],
+    };
+  }
+
+  console.log("Calling generateOpenAIImage model from actions...");
+
+  try {
+    // Build the enhanced prompt with pronunciations if available
+    let enhancedPrompt = input.prompt;
+
+    if (input.pronunciations && input.pronunciations.length > 0) {
+      const pronunciationsText = input.pronunciations.join(", ");
+      enhancedPrompt =
+        `${input.prompt} featuring the Chinese character "${input.character}" (pronounced: ${pronunciationsText}). ` +
+        `The character should be clearly visible and the main focus of the image. ` +
+        `Incorporate elements that represent the sounds: ${pronunciationsText}.`;
+    } else {
+      enhancedPrompt =
+        `${input.prompt} featuring the Chinese character "${input.character}". ` +
+        `The character should be clearly visible and the main focus of the image.`;
+    }
+
+    const response = await openai.images.generate({
+      model: input.model || "dall-e-3",
+      prompt: enhancedPrompt,
+      size: input.size || "1024x1024",
+      quality: input.quality || "standard",
+      style: input.style || "vivid",
+      n: 1,
+    });
+
+    if (!response.data || response.data.length === 0) {
+      return {
+        error: "No image data returned from OpenAI",
+        success: false,
+        data: [],
+      };
+    }
+
+    const firstImage = response.data[0];
+    if (!firstImage.url) {
+      return {
+        error: "No image URL returned from OpenAI",
+        success: false,
+        data: [],
+      };
+    }
+
+    revalidateTag("hanzi-generations");
+    return {
+      error: null,
+      success: true,
+      data: [firstImage.url],
+    };
+  } catch (error: any) {
+    console.error("OpenAI Generation ERROR:", error);
+    return {
+      error: error.message || "Failed to generate image with OpenAI",
       success: false,
       data: [],
     };
