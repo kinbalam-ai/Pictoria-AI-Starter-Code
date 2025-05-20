@@ -68,10 +68,10 @@ export async function generateControlNetScribble(
         image: input.canvasImage,
         prompt: input.prompt,
         seed: input.seed,
-        guidance_scale: input.scale || 9,
-        num_inference_steps: input.ddim_steps || 20,
-        a_prompt: input.a_prompt || "best quality, extremely detailed",
-        n_prompt: input.n_prompt || "longbody, lowres, bad anatomy, bad hands",
+        guidance_scale: input.scale,
+        num_inference_steps: input.ddim_steps,
+        a_prompt: input.a_prompt,
+        n_prompt: input.n_prompt,
       },
       wait: true, // Wait for completion
     });

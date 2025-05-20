@@ -140,8 +140,8 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
         standard_character: values.standard_character,
         traditional_character: values.traditional_character,
         prompt: values.prompt,
-        guidance_scale: values.guidance || 9, // !!
-        num_inference_steps: values.num_inference_steps || 50, // !!
+        guidance_scale: values.scale,
+        num_inference_steps: values.ddim_steps,
       }));
 
       // const testData = [

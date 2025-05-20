@@ -313,21 +313,21 @@ const Configurations = ({
     console.log("Form values:", values);
     console.log("Model config:", MODEL_CONFIGS[values.model]);
 
-    // try {
-    //   const payload = {
-    //     ...values,
-    //     canvasImage,
-    //     selectedPronunciations,
-    //     character: displayCharacter,
-    //     standard_character: hanziData?.standard_character || "",
-    //     traditional_character: hanziData?.traditional_character || "",
-    //   };
+    try {
+      const payload = {
+        ...values,
+        canvasImage,
+        selectedPronunciations,
+        character: displayCharacter,
+        standard_character: hanziData?.standard_character || "",
+        traditional_character: hanziData?.traditional_character || "",
+      };
 
-    //   console.log("Full payload:", payload);
-    //   await generateHanzi(payload);
-    // } catch (error) {
-    //   console.error("Error generating image:", error);
-    // }
+      console.log("Full payload:", payload);
+      await generateHanzi(payload);
+    } catch (error) {
+      console.error("Error generating image:", error);
+    }
   }
 
   return (

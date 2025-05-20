@@ -4,7 +4,7 @@ import Configurations from "./_components/Configurations";
 import { getHanziByCharacter } from "@/app/actions/hanzi-actions";
 import GeneratedHanzi from "./_components/GeneratedHanzi";
 
-const HannziGeneration = async ({
+const HanziGeneration = async ({
   searchParams,
 }: {
   searchParams: { character?: string };
@@ -17,9 +17,9 @@ const HannziGeneration = async ({
     const response = await getHanziByCharacter(hanzi);
     hanziData = response.data;
     if (response.success) {
-      console.log("response.data: ", response.data);
+      // console.log("response.data: ", response.data);
     } else {
-      console.log("response.error: ", response.error);
+      // console.log("response.error: ", response.error);
       return <div>No hanziData</div>;
     }
   } 
@@ -40,4 +40,4 @@ const HannziGeneration = async ({
   );
 };
 
-export default HannziGeneration;
+export default HanziGeneration;
