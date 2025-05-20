@@ -62,7 +62,7 @@ type ModelConfig = {
 const MODEL_CONFIGS: Record<string, ModelConfig> = {
   "jagilley/controlnet-scribble": {
     fields: {
-      scale: {
+      guidance_scale: {  // Changed from 'scale'
         type: "number",
         label: "Guidance Scale",
         min: 0.1,
@@ -70,7 +70,7 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
         default: 9,
         step: 0.1,
       },
-      ddim_steps: {
+      num_inference_steps: {  // Changed from 'ddim_steps'
         type: "number",
         label: "Steps",
         min: 1,
@@ -97,7 +97,7 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
   },
   "qr2ai/img2paint_controlnet": {
     fields: {
-      condition_scale: {
+      guidance_scale: {  // Changed from 'condition_scale'
         type: "number",
         label: "ControlNet Scale",
         min: 0,
@@ -105,7 +105,7 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
         default: 0.5,
         step: 0.1,
       },
-      num_inference_steps: {
+      num_inference_steps: {  // Already correct
         type: "number",
         label: "Denoising Steps",
         min: 1,
@@ -129,17 +129,14 @@ type BaseGenerationFormValues = {
   model: string;
   prompt: string;
   seed: number;
-  // Fields from jagilley/controlnet-scribble
-  scale?: number;
-  ddim_steps?: number;
+  // Standardized fields
+  guidance_scale: number;
+  num_inference_steps: number;
+  // Other fields
   a_prompt?: string;
   n_prompt?: string;
-  // Fields from qr2ai/img2paint_controlnet
-  condition_scale?: number;
-  num_inference_steps?: number;
   negative_prompt?: string;
 };
-
 // 2. Create a type-safe default values initializer
 // const getDefaultValues = (selectedModel?: string): BaseGenerationFormValues => {
 //   const baseDefaults: BaseGenerationFormValues = {
