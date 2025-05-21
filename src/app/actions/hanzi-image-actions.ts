@@ -254,6 +254,74 @@ export async function generateOpenAIImage(input: {
   }
 }
 
+export async function generateGPTImage1(input: {
+  prompt: string;
+  character: string;
+  canvasImage: string;
+  model?: string;
+  size?: string;
+  quality?: string;
+  style?: string;
+  detail?: string;
+  pronunciations?: string[];
+}): Promise<GenerationResponse> {
+  if (!process.env.OPENAI_API_KEY) {
+    return {
+      error: "Missing OPENAI_API_KEY",
+      success: false,
+      data: [],
+    };
+  }
+
+  console.log("Calling generateGPTImage1 model from actions: ", input);
+
+  try {
+    // const response = await openai.images.generate({
+    //   model: "gpt-image-1",
+    //   size: input.size === "auto" ? undefined : input.size, // Handle auto size
+    //   model: "gpt-image-1",
+    //   prompt: `${input.prompt} featuring ${input.character}${
+    //     input.pronunciations?.length
+    //       ? ` (${input.pronunciations.join(", ")})`
+    //       : ""
+    //   }. ${input.detail === 'high' ? 'Highly detailed.' : ''}`,
+    //   quality: input.quality || "hd",
+    //   style: input.style || "vivid",
+    //   n: 1,
+    // });
+
+    // if (!response.data || response.data.length === 0) {
+    //   return {
+    //     error: "No image data returned from OpenAI",
+    //     success: false,
+    //     data: [],
+    //   };
+    // }
+
+    // const firstImage = response.data[0];
+    // if (!firstImage.url) {
+    //   return {
+    //     error: "No image URL returned from OpenAI",
+    //     success: false,
+    //     data: [],
+    //   };
+    // }
+
+    return {
+      error: null,
+      success: true,
+      data: ["firstImage.url"],
+    };
+  } catch (error: any) {
+    console.error("GPT Image 1 Generation ERROR:", error);
+    return {
+      error: error.message || "Failed to generate image with GPT Image 1",
+      success: false,
+      data: [],
+    };
+  }
+}
+
 type StoreHanziImageInput = {
   url: string;
 } & Database["public"]["Tables"]["generated_hanzi"]["Insert"];

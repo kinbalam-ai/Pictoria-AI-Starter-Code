@@ -157,6 +157,40 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
       style: "vivid",
     },
   },
+  "openai/gpt-image-1": {
+    fields: {
+      size: {
+        type: "text",
+        label: "Image Size",
+        default: "1024x1024",
+        advanced: true,
+      },
+      quality: {
+        type: "text",
+        label: "Quality",
+        default: "hd", // GPT Image 1 defaults to HD
+        advanced: true,
+      },
+      style: {
+        type: "text",
+        label: "Style",
+        default: "vivid",
+        advanced: true,
+      },
+      detail: {
+        type: "text",
+        label: "Detail Level",
+        default: "high",
+        advanced: true,
+      },
+    },
+    defaults: {
+      size: "1024x1024",
+      quality: "hd",
+      style: "vivid",
+      detail: "high",
+    },
+  },
 };
 
 type BaseGenerationFormValues = {
@@ -174,6 +208,8 @@ type BaseGenerationFormValues = {
   size?: "256x256" | "512x512" | "1024x1024" | "1024x1792" | "1792x1024";
   quality?: "standard" | "hd";
   style?: "vivid" | "natural";
+  // GPT Image 1 specific fields
+  detail?: "low" | "high" | "auto";
 };
 // 2. Create a type-safe default values initializer
 // const getDefaultValues = (selectedModel?: string): BaseGenerationFormValues => {
@@ -477,6 +513,7 @@ const Configurations = ({
                       <SelectItem value="openai/dall-e-3">
                         OpenAI DALL·E 3
                       </SelectItem>
+                      <SelectItem value="openai/gpt-image-1">OpenAI GPT Image 1</SelectItem>
                       {userModels?.map(
                         (model) =>
                           model.training_status === "succeeded" && (
@@ -504,9 +541,17 @@ const Configurations = ({
                     <Textarea
                       {...field}
                       rows={3}
-                      placeholder="Describe the image you want to generate..."
+                      placeholder={
+                        selectedModel === "openai/gpt-image-1"
+                          ? "Describe the image with precise details for GPT Image 1..."
+                          : selectedModel === "openai/dall-e-3"
+                          ? "Example: 'A watercolor painting of the character...'"
+                          : "Describe the image you want to generate..."
+                      }
+                      className="min-h-[120px]"
                     />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -673,7 +718,114 @@ const Configurations = ({
                   />
 
                   {/* Model-specific advanced options */}
-                  {selectedModel === "openai/dall-e-3" ? (
+                  {selectedModel === "openai/gpt-image-1" ? (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="size"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Image Size</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select size" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1024x1024">
+                                  1024x1024 (Square)
+                                </SelectItem>
+                                <SelectItem value="1024x1792">
+                                  1024x1792 (Portrait)
+                                </SelectItem>
+                                <SelectItem value="1792x1024">
+                                  1792x1024 (Landscape)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="detail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Detail Level</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select detail level" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="low">Low</SelectItem>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="auto">Auto</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      {/* Include quality and style fields similar to DALL-E 3 */}
+                      <FormField
+                        control={form.control}
+                        name="quality"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Quality</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select quality" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="standard">
+                                  Standard
+                                </SelectItem>
+                                <SelectItem value="hd">
+                                  HD (Higher Quality)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="style"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Style</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select style" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="vivid">
+                                  Vivid (More dramatic)
+                                </SelectItem>
+                                <SelectItem value="natural">
+                                  Natural (More realistic)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  ) : selectedModel === "openai/dall-e-3" ? (
                     <>
                       <FormField
                         control={form.control}

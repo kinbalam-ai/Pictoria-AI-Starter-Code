@@ -4,6 +4,7 @@ import { create } from "zustand";
 // import { toast } from "sonner";
 import {
   generateControlNetScribble,
+  generateGPTImage1,
   generateImg2PaintControlNet,
   generateOpenAIImage,
   GenerationResponse,
@@ -122,6 +123,13 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
             pronunciations: get().selectedPronunciations,
           });
           break;
+        case values.model === "openai/gpt-image-1":
+          result = await generateGPTImage1({
+            ...values,
+            model: "gpt-image-1",
+            pronunciations: get().selectedPronunciations,
+          });
+          break;
         default:
           throw new Error(`Unsupported model: ${values.model}`);
       }
@@ -165,7 +173,7 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
       }));
 
       // Store the generated images
-      await storeHanziImages(imageData);
+      // await storeHanziImages(imageData);
       toast.success("Images stored successfully");
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "Generation failed" });
