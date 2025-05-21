@@ -163,34 +163,20 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
         type: "text",
         label: "Image Size",
         default: "1024x1024",
-        advanced: true,
-      },
-      quality: {
-        type: "text",
-        label: "Quality",
-        default: "hd", // GPT Image 1 defaults to HD
-        advanced: true,
-      },
-      style: {
-        type: "text",
-        label: "Style",
-        default: "vivid",
-        advanced: true,
+        advanced: true
       },
       detail: {
         type: "text",
         label: "Detail Level",
         default: "high",
-        advanced: true,
-      },
+        advanced: true
+      }
     },
     defaults: {
       size: "1024x1024",
-      quality: "hd",
-      style: "vivid",
-      detail: "high",
-    },
-  },
+      detail: "high"
+    }
+  }
 };
 
 type BaseGenerationFormValues = {
@@ -209,7 +195,7 @@ type BaseGenerationFormValues = {
   quality?: "standard" | "hd";
   style?: "vivid" | "natural";
   // GPT Image 1 specific fields
-  detail?: "low" | "high" | "auto";
+  detail?: "low" | "medium" | "high" | "auto"; // Correct options for GPT Image 1
 };
 // 2. Create a type-safe default values initializer
 // const getDefaultValues = (selectedModel?: string): BaseGenerationFormValues => {
@@ -720,111 +706,47 @@ const Configurations = ({
                   {/* Model-specific advanced options */}
                   {selectedModel === "openai/gpt-image-1" ? (
                     <>
-                      <FormField
-                        control={form.control}
-                        name="size"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Image Size</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select size" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="1024x1024">
-                                  1024x1024 (Square)
-                                </SelectItem>
-                                <SelectItem value="1024x1792">
-                                  1024x1792 (Portrait)
-                                </SelectItem>
-                                <SelectItem value="1792x1024">
-                                  1792x1024 (Landscape)
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="detail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Detail Level</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select detail level" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="low">Low</SelectItem>
-                                <SelectItem value="high">High</SelectItem>
-                                <SelectItem value="auto">Auto</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </FormItem>
-                        )}
-                      />
-                      {/* Include quality and style fields similar to DALL-E 3 */}
-                      <FormField
-                        control={form.control}
-                        name="quality"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Quality</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select quality" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="standard">
-                                  Standard
-                                </SelectItem>
-                                <SelectItem value="hd">
-                                  HD (Higher Quality)
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="style"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Style</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select style" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="vivid">
-                                  Vivid (More dramatic)
-                                </SelectItem>
-                                <SelectItem value="natural">
-                                  Natural (More realistic)
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
+    <FormField
+      control={form.control}
+      name="size"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Image Size</FormLabel>
+          <Select onValueChange={field.onChange} value={field.value}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select size" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1024x1024">1024x1024 (Square)</SelectItem>
+              <SelectItem value="1536x1024">1536x1024 (Landscape)</SelectItem>
+              <SelectItem value="1024x1536">1024x1536 (Portrait)</SelectItem>
+              <SelectItem value="auto">Auto</SelectItem>
+            </SelectContent>
+          </Select>
+        </FormItem>
+      )}
+    />
+    <FormField
+      control={form.control}
+      name="detail"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Detail Level</FormLabel>
+          <Select onValueChange={field.onChange} value={field.value}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select detail level" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="auto">Auto</SelectItem>
+            </SelectContent>
+          </Select>
+        </FormItem>
+      )}
+    />
+  </>
                   ) : selectedModel === "openai/dall-e-3" ? (
                     <>
                       <FormField

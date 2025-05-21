@@ -135,45 +135,28 @@ const useGenerateHanziStore = create<GenerateHanziState>((set, get) => ({
       }
 
       console.log("Generation result:", result);
-      if (!result.success) {
-        set({ error: result.error, loading: false });
-        toast.error(result.error, { id: toastId });
-        return;
-      }
+      // Handle both URL and base64 image data
+    if (!result.success || !result.data?.[0]) {
+      const errorMsg = result.error || "No image data returned";
+      set({ error: errorMsg, loading: false });
+      toast.error(errorMsg, { id: toastId });
+      return;
+    }
 
-      // Process the results
-      const dataWithInputs = Array.isArray(result.data)
-        ? result.data.map((url: string) => ({
-            url,
-            ...values,
-            // Ensure we have the character data for storage
-            standard_character:
-              values.standard_character || get().hanziData?.standard_character,
-            traditional_character:
-              values.traditional_character ||
-              get().hanziData?.traditional_character,
-          }))
-        : [];
+    const imageUrl = result.data[0];
+    const dataWithInputs = [{
+      url: imageUrl,
+      isBase64: imageUrl.startsWith('data:image/'), // Flag for base64 images
+      ...values,
+      standard_character: get().hanziData?.standard_character,
+      traditional_character: get().hanziData?.traditional_character
+    }];
 
-      set({ images: dataWithInputs, loading: false });
-      toast.success("Image generated successfully", { id: toastId });
+    set({ images: dataWithInputs, loading: false });
+    toast.success("Image generated successfully", { id: toastId });
 
-      // Prepare data for storage
-      const imageData = dataWithInputs.map((generated) => ({
-        url: generated.url,
-        model: generated.model,
-        standard_character: generated.standard_character,
-        traditional_character: generated.traditional_character,
-        prompt: generated.prompt,
-        // Only include these for Replicate models
-        ...(generated.model !== "openai/dall-e-3" && {
-          guidance_scale: generated.guidance_scale,
-          num_inference_steps: generated.num_inference_steps,
-        }),
-      }));
-
-      // Store the generated images
-      // await storeHanziImages(imageData);
+    // Store the generated image
+    await storeHanziImages(dataWithInputs);
       toast.success("Images stored successfully");
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "Generation failed" });

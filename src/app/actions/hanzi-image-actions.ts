@@ -258,11 +258,8 @@ export async function generateGPTImage1(input: {
   prompt: string;
   character: string;
   canvasImage: string;
-  model?: string;
-  size?: string;
-  quality?: string;
-  style?: string;
-  detail?: string;
+  size?: "1024x1024" | "1536x1024" | "1024x1536" | "auto";
+  detail?: "low" | "medium" | "high" | "auto";
   pronunciations?: string[];
 }): Promise<GenerationResponse> {
   if (!process.env.OPENAI_API_KEY) {
@@ -273,44 +270,36 @@ export async function generateGPTImage1(input: {
     };
   }
 
-  console.log("Calling generateGPTImage1 model from actions: ", input);
+  console.log("Calling generateGPTImage1 model from actions...");
 
   try {
-    // const response = await openai.images.generate({
-    //   model: "gpt-image-1",
-    //   size: input.size === "auto" ? undefined : input.size, // Handle auto size
-    //   model: "gpt-image-1",
-    //   prompt: `${input.prompt} featuring ${input.character}${
-    //     input.pronunciations?.length
-    //       ? ` (${input.pronunciations.join(", ")})`
-    //       : ""
-    //   }. ${input.detail === 'high' ? 'Highly detailed.' : ''}`,
-    //   quality: input.quality || "hd",
-    //   style: input.style || "vivid",
-    //   n: 1,
-    // });
+    const response = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt: `${input.prompt} featuring ${input.character}${
+        input.pronunciations?.length
+          ? ` (${input.pronunciations.join(", ")})`
+          : ""
+      }`,
+      size: input.size === "auto" ? undefined : input.size,
+      quality: input.detail === "auto" ? undefined : input.detail,
+      n: 1,
+    });
 
-    // if (!response.data || response.data.length === 0) {
-    //   return {
-    //     error: "No image data returned from OpenAI",
-    //     success: false,
-    //     data: [],
-    //   };
-    // }
+    if (!response.data?.[0]?.b64_json) {
+      console.error("GPT Image 1 generation failed - no image data:", response);
+      return {
+        error: "Image generation succeeded but no image data was returned",
+        success: false,
+        data: [],
+      };
+    }
 
-    // const firstImage = response.data[0];
-    // if (!firstImage.url) {
-    //   return {
-    //     error: "No image URL returned from OpenAI",
-    //     success: false,
-    //     data: [],
-    //   };
-    // }
-
+    // Convert base64 to data URL
+    const imageUrl = `data:image/png;base64,${response.data[0].b64_json}`;
     return {
       error: null,
       success: true,
-      data: ["firstImage.url"],
+      data: [imageUrl],
     };
   } catch (error: any) {
     console.error("GPT Image 1 Generation ERROR:", error);
@@ -335,9 +324,6 @@ interface ImageResponse {
 export async function storeHanziImages(
   data: StoreHanziImageInput[]
 ): Promise<ImageResponse> {
-  // TODO: Implement actual Hanzi image storage logic
-  console.log("Storing Hanzi images (not implemented)", data);
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -345,97 +331,125 @@ export async function storeHanziImages(
 
   if (!user) {
     return {
-      error: "Unauthorized",
+      error: "Unauthorized - Please log in to save images",
       success: false,
       data: null,
     };
   }
 
-  const uploadResults = [];
+  console.log("storeHanziImages storeHanziImages storeHanziImages...")
 
-  for (const hanzi of data) {
-    // try {
-    // !!
-    if (!hanzi.url || !hanzi.standard_character) {
-      throw new Error("Missing required fields (url or character)");
-    }
+  const uploadResults = await Promise.all(
+    data.map(async (hanzi) => {
+      try {
+        // Handle both URL and base64 images
+        const isBase64Image = hanzi.url.startsWith('data:image/');
+        let fileBuffer: Buffer;
+        let fileName = `hanzi_${Date.now()}_${user.id}.png`;
 
-    // 1. Download the generated image
-    const arrayBuffer = await imgUrlToBlob(hanzi.url);
-    const { width, height, type } = imageMeta(new Uint8Array(arrayBuffer));
+        if (isBase64Image) {
+          // Process base64 image
+          const base64Data = hanzi.url.replace(/^data:image\/\w+;base64,/, '');
+          fileBuffer = Buffer.from(base64Data, 'base64');
+        } else {
+          // Process URL image
+          const response = await fetch(hanzi.url);
+          if (!response.ok) throw new Error('Failed to fetch image URL');
+          fileBuffer = Buffer.from(await response.arrayBuffer());
+          
+          // Try to get the original file extension
+          const contentType = response.headers.get('content-type');
+          if (contentType?.includes('jpeg') || contentType?.includes('jpg')) {
+            fileName = fileName.replace('.png', '.jpg');
+          }
+        }
 
-    // 2. Generate unique filename
-    const fileName = `hanzi_${randomUUID()}.${type}`;
-    const filePath = `${user.id}/${fileName}`;
+        // Upload to storage
+        const filePath = `${user.id}/${fileName}`;
+        const { error: uploadError } = await supabase.storage
+          .from('generated-hanzi')
+          .upload(filePath, fileBuffer, {
+            contentType: 'image/png', // Default to png
+            upsert: false,
+          });
 
-    // !! 3. Upload to storage
-    console.log("Uploading to storage:", filePath);
-    const { error: storageError } = await supabase.storage
-      .from("generated-hanzi")
-      .upload(filePath, arrayBuffer, {
-        contentType: `image/${type}`,
-        cacheControl: "public, max-age=3600",
-        upsert: true,
-      });
+        if (uploadError) throw uploadError;
 
-    if (storageError) {
-      throw storageError;
-    }
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('generated-hanzi')
+          .getPublicUrl(filePath);
 
-    // console.log("Saving image to database...");
-    // // 4. Get public URL
-    // const { data: urlData } = supabase.storage
-    //   .from("generated-hanzi")
-    //   .getPublicUrl(filePath);
+        // Prepare metadata for database
+        const payload = {
+          user_id: user.id,
+          image_url: urlData.publicUrl,
+          image_name: fileName,
+          model: hanzi.model,
+          standard_character: hanzi.standard_character,
+          traditional_character: hanzi.traditional_character || null,
+          prompt: hanzi.prompt,
+          // // Conditionally include model-specific fields
+          // ...(hanzi.model.includes('controlnet') && {
+          //   guidance_scale: hanzi.guidance_scale,
+          //   num_inference_steps: hanzi.num_inference_steps,
+          // }),
+          // ...(hanzi.model === 'gpt-image-1' && {
+          //   detail_level: hanzi.detail,
+          // }),
+          // ...(hanzi.model === 'openai/dall-e-3' && {
+          //   quality: hanzi.quality,
+          //   style: hanzi.style,
+          // }),
+        };
 
-    const payload = {
-      user_id: user.id,
-      model: hanzi.model,
-      standard_character: hanzi.standard_character,
-      traditional_character: hanzi.traditional_character,
-      image_name: fileName,
-      prompt: hanzi.prompt,
-      guidance_scale: hanzi.guidance_scale,
-      num_inference_steps: hanzi.num_inference_steps,
-      // output_format: type, // or hanzi.output_format if you prefer // !!
-      // width,
-      // height,
-      // aspect_ratio: hanzi.aspect_ratio || `${width}:${height}`,
-      // image_url: urlData.publicUrl,
+        // Save to database
+        const { data: dbData, error: dbError } = await supabase
+          .from('generated_hanzi')
+          .insert([payload])
+          .select();
+
+        if (dbError) throw dbError;
+
+        return {
+          success: true,
+          data: {
+            id: dbData[0].id,
+            url: urlData.publicUrl,
+          },
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Error storing hanzi image:', errorMessage);
+        return {
+          success: false,
+          error: errorMessage,
+        };
+      }
+    })
+  );
+
+  // Handle results
+  const failedUploads = uploadResults.filter(result => !result.success);
+  if (failedUploads.length > 0) {
+    const errorMessages = failedUploads.map(f => f.error).join('; ');
+    return {
+      success: false,
+      error: `Failed to store ${failedUploads.length} images: ${errorMessages}`,
+      data: null,
     };
-
-    // 5. Save metadata to database
-    console.log("Saving Hanzi to database... PAYLOAD: ", payload);
-    const { data: dbData, error: dbError } = await supabase
-      .from("generated_hanzi")
-      .insert([payload])
-      .select();
-
-    uploadResults.push({
-      fileName,
-      error: dbError?.message || null,
-      success: !dbError,
-      data: dbData || null,
-    });
-
-    // } catch (error) {
-    //   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    //   uploadResults.push({
-    //     fileName: hanzi.image_name || 'unknown',
-    //     error: errorMessage,
-    //     success: false,
-    //     data: null,
-    //   });
-    // }
   }
 
-  // Revalidate relevant tags
-  revalidateTag("hanzi-generations");
-  revalidateTag("dashboard-hanzi");
+  // Revalidate data
+  revalidateTag('hanzi-generations');
+  revalidateTag('dashboard-hanzi');
 
   return {
-    error: null,
     success: true,
-    data: { results: uploadResults },
+    error: null,
+    data: {
+      results: uploadResults.filter(r => r.success).map(r => r.data),
+    },
   };
 }
+
