@@ -284,7 +284,7 @@ const Configurations = ({
 }: ConfigurationsProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedModel, setSelectedModel] = useState(
-    model_id || "jagilley/controlnet-scribble"
+    model_id || "openai/gpt-image-1" // "jagilley/controlnet-scribble"
   );
   const [displayCharacter, setDisplayCharacter] = useState(() => {
     const showTraditional = hanziData?.traditional_character === character;
