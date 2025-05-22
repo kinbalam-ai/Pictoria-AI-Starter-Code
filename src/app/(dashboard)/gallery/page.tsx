@@ -11,8 +11,12 @@ export const metadata: Metadata = {
 };
 
 export default async function GalleryPage() {
-  // const { data: images } = await getImages();
+  const { data: images } = await getImages();
 
+  // console.log("IMAGES: ", images)
+
+   // Filter out any images with empty src values if necessary
+  const validImages = images?.filter(image => image.url) || [];
 
   return (
     <div className="container mx-auto ">
@@ -21,7 +25,7 @@ export default async function GalleryPage() {
         Here you can see all the images you have generated. Click on an image to
         view details.
       </p>
-      {/* <Gallery images={images || []} /> */}
+      <Gallery images={validImages} />
     </div>
   );
 }

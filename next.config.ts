@@ -20,9 +20,13 @@ const nextConfig:NextConfig = {
         protocol: "https",
         hostname: "replicate.delivery",
       },
+      // {
+      //   protocol: "https",
+      //   hostname: "hyuthkkrcqzymoqvitti.supabase.co", // Update this to your supabase url
+      // },
       {
-        protocol: "https",
-        hostname: "hyuthkkrcqzymoqvitti.supabase.co", // Update this to your supabase url
+        protocol: 'https',
+        hostname: '*.supabase.co', // This covers all Supabase domains
       },
       {
         protocol: 'https',
